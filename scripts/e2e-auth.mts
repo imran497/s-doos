@@ -22,13 +22,23 @@ if (!fs.existsSync(path.join(root, ".next", "BUILD_ID"))) {
 }
 
 const { hashPassword, totp, isLockedOut, recordFailure, verifyTotp, createSessionToken } = await import("../src/lib/auth.ts");
-const base = { ...process.env, DATABASE_PATH: dbFile, SELLERDOOS_KEY_FILE: `${dbFile}.key`, DISABLE_SCHEDULER: "true" };
+// Next.js loads .env.production in production mode; values set here win, so your real login and key stay out.
+const base = {
+  ...process.env,
+  DATABASE_PATH: dbFile,
+  SELLERDOOS_KEY_FILE: `${dbFile}.key`,
+  DISABLE_SCHEDULER: "true",
+  SELLERDOOS_PASSWORD_HASH: "",
+  SELLERDOOS_TOTP_SECRET: "",
+  SESSION_SECRET: "",
+  SELLERDOOS_KEY: "",
+};
 delete base.SELLERDOOS_ALLOW_NO_LOGIN;
 const authEnv = { SELLERDOOS_PASSWORD_HASH: hashPassword(PASSWORD), SELLERDOOS_TOTP_SECRET: TOTP_SECRET, SESSION_SECRET: "e2e-session-secret" };
 const start = (port: number, env: NodeJS.ProcessEnv) =>
-  spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], { cwd: root, env, stdio: "ignore" });
+  spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], { cwd: root, env, stdio: process.env.VERBOSE ? "inherit" : "ignore", detached: true });
 
-const children: ChildProcess[] = [start(APP, { ...base, ...authEnv }), start(BARE, base)];
+const children: ChildProcess[] = [start(APP, { ...base, ...authEnv })];
 let failures = 0;
 const check = (label: string, ok: boolean, detail?: unknown) => {
   console.log(`${ok ? "  ✓" : "  ✗"} ${label}${ok ? "" : `  →  ${JSON.stringify(detail)}`}`);
@@ -36,7 +46,7 @@ const check = (label: string, ok: boolean, detail?: unknown) => {
 };
 const get = (url: string, init: RequestInit = {}) => fetch(url, { redirect: "manual", ...init });
 const waitFor = async (url: string) => {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     if (await fetch(url).then(() => true, () => false)) return;
     await new Promise((r) => setTimeout(r, 250));
   }
@@ -98,12 +108,16 @@ const signIn = (password: string, code: string) => `(() => {
 })()`;
 
 try {
-  await Promise.all([waitFor(`${app}/api/health`), waitFor(`http://localhost:${BARE}/api/health`)]);
+  await waitFor(`${app}/api/health`);
+  // The second server (no login configured) starts once the first has created the database.
+  children.push(start(BARE, base));
+  await waitFor(`http://localhost:${BARE}/privacy`);
 
   console.log("Without a session");
   const home = await get(`${app}/summary`);
   check("pages redirect to the login page", home.status === 307 && home.headers.get("location")?.endsWith("/login?next=%2Fsummary") === true, [home.status, home.headers.get("location")]);
   check("API routes refuse (401)", (await get(`${app}/api/amazon/connect/seller`)).status === 401);
+  check("ads report upload refuses (401)", (await get(`${app}/api/ads/upload`, { method: "POST", body: new FormData() })).status === 401);
   check("server actions refuse (401)", (await get(`${app}/`, { method: "POST", headers: { "Next-Action": "anything" } })).status === 401);
   check("privacy notice is public", (await get(`${app}/privacy`)).status === 200);
   check("health check is public", (await get(`${app}/api/health`)).status === 200);
@@ -178,7 +192,14 @@ try {
   console.error(error);
   failures++;
 } finally {
-  for (const c of children) c.kill();
+  // next start runs the server in a child process: stop each whole process group.
+  for (const c of children) {
+    try {
+      if (c.pid) process.kill(-c.pid, "SIGTERM");
+    } catch {
+      c.kill();
+    }
+  }
   for (const f of [dbFile, `${dbFile}-wal`, `${dbFile}-shm`, `${dbFile}.key`]) fs.rmSync(f, { force: true });
 }
 

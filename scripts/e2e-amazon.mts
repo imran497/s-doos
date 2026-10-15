@@ -203,6 +203,50 @@ try {
   const { syncExpenses } = await import("../src/lib/jobs/expenses.ts");
   await syncExpenses(["US"]);
   check("re-sync doesn't duplicate", one<{ n: number }>("SELECT COUNT(*) n FROM expenses WHERE source = 'spapi'").n === 6);
+
+  console.log("Uploaded Amazon Ads reports");
+  const { importAdsReport, hasRealAdsData } = await import("../src/lib/ads-upload.ts");
+  const { strToU8, zipSync } = await import("fflate");
+  db.prepare("INSERT INTO ads_products (marketplace, date, asin, cost, source) VALUES ('CA', '2026-09-01', 'B0GZ8LVLGR', 99, 'demo')").run();
+  // Advertised product report as Amazon exports it: a title line, then the header; two campaigns advertise one ASIN.
+  const productCsv = [
+    "Sponsored Products Advertised product report",
+    'Date,Portfolio name,Currency,Campaign Name,Ad Group Name,Advertised SKU,Advertised ASIN,Impressions,Clicks,Click-Thru Rate (CTR),Cost Per Click (CPC),Spend,7 Day Total Sales ,Total Advertising Cost of Sales (ACOS) ,7 Day Total Orders (#),7 Day Total Units (#)',
+    'Oct 01 2026,,USD,"SP - Tiles, exact",AG1,KIDBEES60MT,B0GZ8LVLGR,1000,10,1.00%,$0.80,$8.00,$52.98,15.10%,2,2',
+    'Oct 01 2026,,USD,SP - Auto,AG2,KIDBEES60MT,B0GZ8LVLGR,500,5,1.00%,$0.70,$3.50,$26.49,13.21%,1,1',
+    'Oct 02 2026,,USD,SP - Auto,AG2,KIDBEES60MT,B0GZ8LVLGR,700,7,1.00%,$0.70,$4.90,$0.00,,0,0',
+  ].join("\n");
+  const up1 = importAdsReport(strToU8(productCsv), "advertised.csv", "CA");
+  const day1 = one<{ cost: number; clicks: number; sales: number; purchases: number }>("SELECT cost, clicks, sales, purchases FROM ads_products WHERE marketplace = 'CA' AND date = '2026-10-01'");
+  check("advertised product CSV read (title line skipped)", up1.kind === "products" && up1.days === 2 && up1.from === "2026-10-01", up1);
+  check("two campaigns summed per ASIN and day", near(day1.cost, 11.5) && day1.clicks === 15 && near(day1.sales, 79.47) && day1.purchases === 3, day1);
+  importAdsReport(strToU8(productCsv), "advertised.csv", "CA");
+  check("re-uploading the same days replaces, not doubles", near(one<{ c: number }>("SELECT SUM(cost) c FROM ads_products WHERE marketplace = 'CA'").c, 16.4));
+  check("sample ads data removed once real data is uploaded", !db.prepare("SELECT 1 FROM ads_products WHERE marketplace = 'CA' AND source = 'demo'").get() && hasRealAdsData());
+
+  // Search term report as .xlsx (shared strings, a date as an Excel day number).
+  const shared = ["Date", "Campaign Name", "Targeting", "Match Type", "Customer Search Term", "Impressions", "Clicks", "Spend", "7 Day Total Sales ", "7 Day Total Orders (#)", "7 Day Total Units (#)", "SP - Tiles", "magnetic tiles", "EXACT", "magnet tiles for kids"];
+  const sst = `<sst>${shared.map((t) => `<si><t>${t}</t></si>`).join("")}</sst>`;
+  const cell = (ref: string, v: string | number, isString = typeof v === "string") => (isString ? `<c r="${ref}" t="s"><v>${shared.indexOf(v as string)}</v></c>` : `<c r="${ref}"><v>${v}</v></c>`);
+  const header = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"].map((c, i) => cell(`${c}1`, shared[i])).join("");
+  const data = [cell("A2", 46296), cell("B2", "SP - Tiles"), cell("C2", "magnetic tiles"), cell("D2", "EXACT"), cell("E2", "magnet tiles for kids"), cell("F2", 900), cell("G2", 12), cell("H2", 9.6), cell("I2", 52.98), cell("J2", 2), cell("K2", 2)].join("");
+  const xlsx = zipSync({
+    "xl/workbook.xml": strToU8('<workbook><sheets><sheet name="Report" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    "xl/_rels/workbook.xml.rels": strToU8('<Relationships><Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+    "xl/sharedStrings.xml": strToU8(sst),
+    "xl/worksheets/sheet1.xml": strToU8(`<worksheet><sheetData><row r="1">${header}</row><row r="2">${data}</row></sheetData></worksheet>`),
+  });
+  const up2 = importAdsReport(xlsx, "search-terms.xlsx", "CA");
+  const term = one<{ search_term: string; keyword: string; match_type: string; date: string; cost: number }>("SELECT * FROM ads_search_terms WHERE marketplace = 'CA'");
+  check("search term .xlsx read", up2.kind === "searchTerms" && term?.search_term === "magnet tiles for kids" && term.keyword === "magnetic tiles" && term.match_type === "EXACT" && near(term.cost, 9.6), term);
+  check("Excel day numbers become dates", term?.date === "2026-10-01", term?.date);
+  let refused = "";
+  try {
+    importAdsReport(strToU8("Start Date,End Date,Advertised ASIN,Impressions,Clicks,Spend\nOct 01 2026,Oct 31 2026,B0GZ8LVLGR,10,1,1"), "summary.csv", "CA");
+  } catch (error) {
+    refused = (error as Error).message;
+  }
+  check("a summary (non-daily) report is refused with a clear message", /Daily/.test(refused), refused);
 } catch (error) {
   console.error(error);
   failures++;

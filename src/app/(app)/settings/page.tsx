@@ -1,3 +1,4 @@
+import { AdsUpload } from "@/components/AdsUpload";
 import { DataControls } from "@/components/DataControls";
 import { Suspense } from "react";
 import type { Metadata } from "next";
@@ -11,7 +12,7 @@ import { isDataForSeoConfigured } from "@/lib/dataforseo";
 import { keyFileLocation } from "@/lib/secrets";
 import { securityEvents, unacknowledgedCount } from "@/lib/security";
 import { AcknowledgeSecurityButton, TestConnectionButton } from "@/components/ConnectControls";
-import { marketplaces as allMarketplaces, type MarketplaceCode } from "@/lib/marketplaces";
+import { isMarketplace, marketplaces as allMarketplaces, type MarketplaceCode } from "@/lib/marketplaces";
 import { getRecentRuns, getReportQueue } from "@/lib/queries";
 import { getSerpProvider } from "@/lib/serp";
 import { getSettings } from "@/lib/settings";
@@ -53,6 +54,10 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
   const researchSeeds = (db.prepare("SELECT value FROM settings WHERE key = 'researchSeeds'").get() as { value: string } | undefined)?.value ?? "";
   const hasDemo = provider.isDemo || !spApi || !ads;
   const marketplace = (db.prepare("SELECT marketplace FROM products ORDER BY id LIMIT 1").get() as { marketplace: string } | undefined)?.marketplace ?? "US";
+  // Marketplaces you sell in, most products first, for the ads report upload.
+  const adsUploadMarketplaces = (db.prepare("SELECT marketplace, COUNT(*) n FROM products GROUP BY marketplace ORDER BY n DESC").all() as { marketplace: string }[])
+    .filter((r) => isMarketplace(r.marketplace))
+    .map((r) => ({ code: r.marketplace, label: `${allMarketplaces[r.marketplace as MarketplaceCode].flag} ${allMarketplaces[r.marketplace as MarketplaceCode].name}` }));
   const field = (name: CredentialName, label: string, secret = false, placeholder?: string): Field => ({
     name,
     label,
@@ -166,6 +171,19 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
           />
         </div>
       </section>
+
+      {!ads && (
+        <section id="ads-upload" className="scroll-mt-20 card space-y-4 p-6 lg:col-span-2">
+          <div>
+            <h2 className="font-extrabold">Upload Amazon Ads reports</h2>
+            <p className="text-sm text-muted-foreground">
+              Until the Ads API is connected, download reports from Amazon Ads and upload them here. They fill the Dashboard&apos;s Advertising section,
+              ACoS on Products and search terms, replacing the sample data.
+            </p>
+          </div>
+          <AdsUpload marketplaces={adsUploadMarketplaces} />
+        </section>
+      )}
 
       <section id="rank-data" className="scroll-mt-20 card space-y-5 p-6">
         <div>

@@ -23,6 +23,11 @@ const env = {
   REPORT_POLL_MS: "100",
   // Production mode requires login; this test is about connecting, so run without it (test:auth covers login).
   SELLERDOOS_ALLOW_NO_LOGIN: "true",
+  // Next.js loads .env.production in production mode; values set here win, so your real login and key stay out.
+  SELLERDOOS_PASSWORD_HASH: "",
+  SELLERDOOS_TOTP_SECRET: "",
+  SESSION_SECRET: "",
+  SELLERDOOS_KEY: "",
   MOCK_QUIET: process.env.VERBOSE ? "" : "1",
 };
 // Credentials must come from the database (Settings / Connect), never from the environment here.
@@ -35,7 +40,7 @@ if (!fs.existsSync(path.join(import.meta.dirname, "..", ".next", "BUILD_ID"))) {
 
 const root = path.join(import.meta.dirname, "..");
 const mock = spawn(process.execPath, [path.join(import.meta.dirname, "mock-amazon.mjs"), String(MOCK)], { stdio: "inherit", env });
-const server = spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(APP)], { cwd: root, env, stdio: "ignore" });
+const server = spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(APP)], { cwd: root, env, stdio: "ignore", detached: true });
 
 let failures = 0;
 const check = (label: string, ok: boolean, detail?: unknown) => {
@@ -46,8 +51,9 @@ const check = (label: string, ok: boolean, detail?: unknown) => {
 const get = (url: string, cookie?: string) => fetch(url, { redirect: "manual", headers: cookie ? { cookie } : {} });
 
 try {
-  for (let i = 0; i < 40; i++) {
-    const up = await fetch(`${app}/settings`).catch(() => null);
+  // Ready once the health check answers (it also means the database schema exists).
+  for (let i = 0; i < 120; i++) {
+    const up = await fetch(`${app}/api/health`).catch(() => null);
     if (up?.ok) break;
     await new Promise((r) => setTimeout(r, 250));
   }
@@ -128,7 +134,11 @@ try {
   console.error(error);
   failures++;
 } finally {
-  server.kill();
+  try {
+    if (server.pid) process.kill(-server.pid, "SIGTERM"); // next start runs the server in a child process
+  } catch {
+    server.kill();
+  }
   mock.kill();
   for (const f of [dbFile, `${dbFile}-wal`, `${dbFile}-shm`, keyFile]) fs.rmSync(f, { force: true });
 }

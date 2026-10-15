@@ -384,7 +384,8 @@ function open() {
     fs.renameSync(RESTORE_PATH, DB_PATH);
     console.log("[SellerDoos] restored the database from an uploaded backup");
   }
-  const db = new Database(DB_PATH);
+  // Wait (up to 5 s) instead of failing when another connection is writing, e.g. a backup or a second process.
+  const db = new Database(DB_PATH, { timeout: 5000 });
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   return db;

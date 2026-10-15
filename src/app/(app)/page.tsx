@@ -101,7 +101,21 @@ async function DashboardContent({ searchParams }: PageProps<"/">) {
       </section>
 
       <section className="space-y-4">
-        <SectionHeader title="Advertising" meta={a.demo ? "Sample data" : a.latestDay ? `Sponsored Products · reported daily, latest ${a.latestDay}` : undefined} />
+        <SectionHeader
+          title="Advertising"
+          meta={
+            a.demo ? (
+              <>
+                Sample data ·{" "}
+                <Link href="/settings#ads-upload" className="font-medium text-brand hover:text-brand-dark">
+                  Upload your ads reports
+                </Link>
+              </>
+            ) : a.latestDay ? (
+              `Sponsored Products · reported daily, latest ${a.latestDay}`
+            ) : undefined
+          }
+        />
         {a.hasData ? (
           <>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">

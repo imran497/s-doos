@@ -7,6 +7,7 @@ import { getSettings } from "../settings";
 import { getSerpProvider } from "../serp";
 import { DEMO_TABLES, fillAdsDemo, fillSellerDemo } from "./demo";
 import { accountMarketplaces, activeMarketplaces, backfillFinances, refreshListingDetails, sellerMarketplaces, snapshotInventory, snapshotListings, syncFinances } from "./direct";
+import { hasRealAdsData } from "../ads-upload";
 import { syncExpenses } from "./expenses";
 import { logRun } from "./log";
 import { checkProduct, collectPending, refreshSearchVolumes } from "./ranks";
@@ -17,7 +18,8 @@ export { accountMarketplaces, checkProduct, collectPending, logRun, refreshSearc
 /** Fills sample data for whichever Amazon APIs aren't connected yet. */
 export function refreshDemo() {
   if (!isSpApiConfigured()) fillSellerDemo();
-  if (!isAdsConfigured()) fillAdsDemo();
+  // No sample ads once real ad data exists (connected API or uploaded reports).
+  if (!isAdsConfigured() && !hasRealAdsData()) fillAdsDemo();
 }
 
 /** Sample data from Seller Central, Ads and rank sources that are now connected for real. */
@@ -28,7 +30,7 @@ export function pruneDemo() {
   db.transaction(() => {
     const clear = (tables: string[]) => tables.forEach((t) => db.prepare(`DELETE FROM ${t} WHERE source = 'demo'`).run());
     if (isSpApiConfigured()) clear(SELLER_DEMO_TABLES);
-    if (isAdsConfigured()) clear(["ads_search_terms", "ads_products"]);
+    if (isAdsConfigured() || hasRealAdsData()) clear(["ads_search_terms", "ads_products"]);
     if (!getSerpProvider().isDemo) clear(["rank_checks"]);
   })();
 }
