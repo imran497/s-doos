@@ -10,6 +10,8 @@ RUN npm ci
 
 FROM deps AS build
 COPY . .
+# public/ may be empty, and git doesn't keep empty folders.
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1 DISABLE_SCHEDULER=true DATABASE_PATH=/tmp/build.db SELLERDOOS_KEY_FILE=/tmp/build.key
 RUN npm run build
 
