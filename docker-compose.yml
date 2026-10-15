@@ -1,0 +1,30 @@
+# SellerDoos on one server: the app, and Caddy in front for HTTPS (certificates from Let's Encrypt,
+# renewed automatically). Secrets come from .env.production (created by `npm run auth:setup`).
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    volumes:
+      - sd-data:/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    env_file: .env.production
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  sd-data:
+  caddy-data:
+  caddy-config:

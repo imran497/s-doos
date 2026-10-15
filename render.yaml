@@ -1,0 +1,29 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repository. Render builds the Dockerfile, attaches
+# a 1 GB disk at /data for the database, and asks for the secret values marked sync: false (copy them from
+# .env.production, created by `npm run auth:setup`). See docs/deployment-plan.md.
+services:
+  - type: web
+    name: sellerdoos
+    runtime: docker
+    plan: starter            # always on (the free plan sleeps, which would stop the Amazon sync)
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: sellerdoos-data
+      mountPath: /data
+      sizeGB: 1
+    domains:
+      - sellerdoos.kidbeestoys.com
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/sellerdoos.db
+      - key: SELLERDOOS_PASSWORD_HASH
+        sync: false
+      - key: SELLERDOOS_TOTP_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: SELLERDOOS_KEY
+        sync: false

@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+data
+.env*
+!.env.production.example
+*.db
+*.db-*
+certificates
+backups

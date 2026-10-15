@@ -1,0 +1,8 @@
+# HTTPS for SellerDoos. DOMAIN comes from .env.production. Caddy only accepts TLS 1.2 and newer.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+	log {
+		output stdout
+	}
+}

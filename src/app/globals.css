@@ -1,26 +1,149 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * SellerDoos design tokens. A calm, data-first look: white surfaces, hairline borders,
+ * one indigo accent, green/red only for change. shadcn/ui components read the :root variables;
+ * older pages use the named colours (ink, muted, line, brand…) mapped onto the same palette.
+ */
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+
+  --color-brand: #635bff;
+  --color-brand-dark: #4f46e5;
+  --color-brand-soft: #f0f0ff;
+  --color-coral: #df1b41;
+  --color-coral-soft: #fff0f3;
+  --color-gold: #b7791f;
+  --color-ink: #1a1f36;
+  --color-line: #e3e8ee;
+  --color-canvas: #f6f8fa;
+  --color-positive: #0b7a4b;
+  --color-positive-soft: #e6f6ee;
+
+  /* Rank bands, best to worst */
+  --color-band-top3: #4f46e5;
+  --color-band-page1: #8f8aff;
+  --color-band-page2: #f2b45a;
+  --color-band-beyond: #ef8a9d;
+  --color-band-none: #e3e8ee;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
 
 :root {
+  color-scheme: light;
+  --radius: 0.5rem;
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1a1f36;
+  --card: #ffffff;
+  --card-foreground: #1a1f36;
+  --popover: #ffffff;
+  --popover-foreground: #1a1f36;
+  --primary: #635bff;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f8fa;
+  --secondary-foreground: #1a1f36;
+  --muted: #f6f8fa;
+  --muted-foreground: #697386;
+  --accent: #f3f4f8;
+  --accent-foreground: #1a1f36;
+  --destructive: #df1b41;
+  --border: #e3e8ee;
+  --input: #dfe3ea;
+  --ring: #635bff;
+  /* Charts: current period indigo, comparison grey, then supporting hues */
+  --chart-1: #635bff;
+  --chart-2: #a3acb9;
+  --chart-3: #0ea5e9;
+  --chart-4: #f59e0b;
+  --chart-5: #10b981;
+  --sidebar: #fafbfc;
+  --sidebar-foreground: #3c4257;
+  --sidebar-primary: #635bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0ff;
+  --sidebar-accent-foreground: #4f46e5;
+  --sidebar-border: #e3e8ee;
+  --sidebar-ring: #635bff;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-sm text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Shared building blocks used across pages (same look as the shadcn components). */
+@utility card {
+  @apply rounded-lg border border-line bg-white shadow-[0_1px_2px_0_rgba(16,24,40,0.04)];
+}
+
+@utility btn {
+  @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-white px-3 text-[13px] font-medium text-ink shadow-[0_1px_1px_0_rgba(16,24,40,0.04)] transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-3.5;
+}
+
+@utility btn-primary {
+  @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-brand px-3 text-[13px] font-medium text-white shadow-[0_1px_1px_0_rgba(16,24,40,0.08)] transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-3.5;
+}
+
+@utility field {
+  @apply min-h-8 w-full rounded-md border border-input bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none transition-shadow placeholder:text-muted-foreground/70 focus:border-brand focus:ring-2 focus:ring-brand/15;
+}
+
+@utility eyebrow {
+  @apply text-[13px] font-medium text-muted-foreground;
 }
