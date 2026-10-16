@@ -163,6 +163,9 @@ export async function syncAmazon({ waitMs = 0 } = {}) {
   errors.push(...planned.errors);
 
   if (isSpApiConfigured()) {
+    // Account charges (subscription, storage, coupons…) for Misc charges. First, because Amazon's finance
+    // data also tells us your seller id, which the Buy Box check below needs.
+    errors.push(...(await syncExpenses(ms)).errors);
     const withProducts = new Set(activeMarketplaces());
     for (const m of ms) {
       try {
@@ -186,8 +189,6 @@ export async function syncAmazon({ waitMs = 0 } = {}) {
         errors.push(`Finances: ${(error as Error).message}`);
       }
     }
-    // Account charges (subscription, storage, coupons…) for Misc charges.
-    errors.push(...(await syncExpenses(ms)).errors);
   }
 
   const reports = await processReports({ waitMs });

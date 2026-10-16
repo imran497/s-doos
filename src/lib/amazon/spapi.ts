@@ -460,7 +460,17 @@ export async function listFinancialEvents(marketplace: MarketplaceCode, from: st
 
 // ---- Finances transactions (2024-06-19): every money movement, dated, including account-level fees ----
 
-export type FinanceTransaction = { id: string; type: string; description: string; postedDate: string; amount: number; currency: string; marketplaceId: string | null };
+export type FinanceTransaction = {
+  id: string;
+  type: string;
+  description: string;
+  postedDate: string;
+  amount: number;
+  currency: string;
+  marketplaceId: string | null;
+  /** Your seller (merchant) id, as Amazon reports it on each transaction. */
+  sellerId: string | null;
+};
 
 /** Transactions posted in [from, to); Amazon allows at most 180 days per request. */
 export async function listTransactions(marketplace: MarketplaceCode, from: string, to: string) {
@@ -481,6 +491,7 @@ export async function listTransactions(marketplace: MarketplaceCode, from: strin
           postedDate?: string;
           totalAmount?: { currencyAmount?: number; currencyCode?: string };
           marketplaceDetails?: { marketplaceId?: string };
+          sellingPartnerMetadata?: { sellingPartnerId?: string };
         }[];
       };
     }>(marketplace, `/finances/2024-06-19/transactions?${params}`);
@@ -494,6 +505,7 @@ export async function listTransactions(marketplace: MarketplaceCode, from: strin
         amount: t.totalAmount?.currencyAmount ?? 0,
         currency: t.totalAmount?.currencyCode ?? "",
         marketplaceId: t.marketplaceDetails?.marketplaceId ?? null,
+        sellerId: t.sellingPartnerMetadata?.sellingPartnerId ?? null,
       });
     }
     next = body.payload?.nextToken;
@@ -577,10 +589,14 @@ type OffersPayload = {
     LowestPrices?: { condition?: string; LandedPrice?: { Amount?: number; CurrencyCode?: string }; ListingPrice?: { Amount?: number; CurrencyCode?: string } }[];
     BuyBoxPrices?: { condition?: string; LandedPrice?: { Amount?: number; CurrencyCode?: string } }[];
   };
-  Offers?: { MyOffer?: boolean; IsBuyBoxWinner?: boolean }[];
+  Offers?: { MyOffer?: boolean; IsBuyBoxWinner?: boolean; SellerId?: string; SubCondition?: string }[];
 };
 
-export async function getOffers(marketplace: MarketplaceCode, asins: string[]) {
+/**
+ * Buy Box and offers for up to 20 ASINs per call. `ownSellerId` identifies your offer: Amazon doesn't always
+ * set the MyOffer flag, so your seller id is compared too.
+ */
+export async function getOffers(marketplace: MarketplaceCode, asins: string[], ownSellerId?: string | null) {
   const results: OfferSnapshot[] = [];
   for (let i = 0; i < asins.length; i += 20) {
     const batch = asins.slice(i, i + 20);
@@ -615,7 +631,7 @@ export async function getOffers(marketplace: MarketplaceCode, asins: string[]) {
         lowestPrice: lowest?.amount ?? null,
         currency: buyBox?.currency || lowest?.currency || "",
         offerCount: p.Summary?.TotalOfferCount ?? null,
-        youHaveBuyBox: Boolean(p.Offers?.some((o) => o.MyOffer && o.IsBuyBoxWinner)),
+        youHaveBuyBox: Boolean(p.Offers?.some((o) => (o.MyOffer || (ownSellerId && o.SellerId === ownSellerId)) && o.IsBuyBoxWinner)),
       });
     });
   }

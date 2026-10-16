@@ -2,6 +2,7 @@ import { listTransactions } from "../amazon/spapi";
 import { addDays, db, today } from "../db";
 import { amazonDescription, classifyAmazonTransaction } from "../expenses-meta";
 import type { MarketplaceCode } from "../marketplaces";
+import { rememberSellerId } from "../seller";
 
 // Imports Amazon account charges (subscription, storage, coupons, Vine, inbound fees, reimbursements,
 // negative-balance payments) into misc charges, from SP-API Finances transactions. The first run goes back
@@ -30,6 +31,9 @@ export async function syncExpenses(markets: MarketplaceCode[]) {
     for (const m of markets) {
       try {
         const rows = await listTransactions(m, start, windowEnd);
+        // Remember your seller id (used to recognise your own offer for the Buy Box).
+        const sellerId = rows.find((r) => r.sellerId)?.sellerId;
+        if (sellerId) rememberSellerId(sellerId);
         db.transaction(() => {
           for (const t of rows) {
             if (seen.has(t.id) || !t.amount) continue;

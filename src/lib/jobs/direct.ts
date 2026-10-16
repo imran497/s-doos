@@ -1,6 +1,7 @@
 import { getCatalogItem, getFeeEstimates, getInventory, getMarketplaceParticipations, getMyPrices, getOffers, isSpApiConfigured, listFinancialEvents, type Participation } from "../amazon/spapi";
 import { addDays, db, today } from "../db";
 import { marketplaces, type MarketplaceCode } from "../marketplaces";
+import { ownSellerId } from "../seller";
 import { snapshotCatalog } from "./ranks";
 
 // Jobs that call SP-API directly (no report queue): FBA inventory, finance events, and daily
@@ -115,7 +116,7 @@ export async function snapshotListings(m: MarketplaceCode) {
 
   const asins = [...new Set([...own, ...rivals].map((x) => x.asin))];
   try {
-    for (const o of await getOffers(m, asins)) {
+    for (const o of await getOffers(m, asins, ownSellerId())) {
       save.run({ ...blank, m, asin: o.asin, date, buyBox: o.buyBoxPrice, lowest: o.lowestPrice, currency: o.currency, offers: o.offerCount, youHaveBuyBox: o.youHaveBuyBox ? 1 : 0 });
     }
   } catch (error) {

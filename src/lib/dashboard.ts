@@ -39,14 +39,17 @@ export async function dashboardMarketplaces() {
   return rows.map((r) => r.marketplace).filter((m) => m in marketplaces);
 }
 
-export async function getDashboard(period: Period, marketplace: MarketplaceCode) {
+/** Pass an ASIN to get the same numbers for one product (product Overview). */
+export async function getDashboard(period: Period, marketplace: MarketplaceCode, asin?: string) {
   await connection();
+  const forAsin = asin ? " AND asin = ?" : "";
+  const asinArg = asin ? [asin] : [];
 
   // Orders: purchase dates are ISO timestamps with offsets, so filter precisely in code.
   const orderRows = (
     db
-      .prepare("SELECT order_id, qty, item_price, purchase_date, status, source FROM orders WHERE marketplace = ? AND status != 'Cancelled' AND purchase_date >= ?")
-      .all(marketplace, ymd(new Date(period.prevStart.getTime() - 86_400_000))) as {
+      .prepare(`SELECT order_id, qty, item_price, purchase_date, status, source FROM orders WHERE marketplace = ? AND status != 'Cancelled' AND purchase_date >= ?${forAsin}`)
+      .all(marketplace, ymd(new Date(period.prevStart.getTime() - 86_400_000)), ...asinArg) as {
       order_id: string;
       qty: number;
       item_price: number;
@@ -60,8 +63,8 @@ export async function getDashboard(period: Period, marketplace: MarketplaceCode)
   // Ads: one row per marketplace day. A day counts if it falls inside the range.
   const adRows = (
     db
-      .prepare("SELECT date, cost, sales, purchases, clicks, impressions, source FROM ads_products WHERE marketplace = ? AND date >= ? AND date <= ?")
-      .all(marketplace, ymd(period.prevStart), ymd(period.end)) as { date: string; cost: number; sales: number; purchases: number; clicks: number; impressions: number; source: string }[]
+      .prepare(`SELECT date, cost, sales, purchases, clicks, impressions, source FROM ads_products WHERE marketplace = ? AND date >= ? AND date <= ?${forAsin}`)
+      .all(marketplace, ymd(period.prevStart), ymd(period.end), ...asinArg) as { date: string; cost: number; sales: number; purchases: number; clicks: number; impressions: number; source: string }[]
   ).map((r) => {
     const [y, mo, d] = r.date.split("-").map(Number);
     return { ...r, at: new Date(y, mo - 1, d).getTime() };

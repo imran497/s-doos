@@ -276,6 +276,7 @@ const server = http.createServer((req, res) => {
         postedDate: `2026-09-${day}T10:00:00Z`,
         totalAmount: { currencyAmount: amount, currencyCode: "USD" },
         marketplaceDetails: { marketplaceId: US },
+        sellingPartnerMetadata: { sellingPartnerId: "AMOCKSELLER", marketplaceId: US },
       });
       const second = url.searchParams.get("nextToken") === "tx2";
       log("transactions page", second ? 2 : 1);
@@ -386,7 +387,8 @@ const server = http.createServer((req, res) => {
                   BuyBoxPrices: [{ condition: "New", LandedPrice: { CurrencyCode: "USD", Amount: asin === OWN ? 24.49 : 21.99 } }],
                   LowestPrices: [{ condition: "new", fulfillmentChannel: "Amazon", LandedPrice: { CurrencyCode: "USD", Amount: asin === OWN ? 24.49 : 20.5 } }],
                 },
-                Offers: [{ MyOffer: asin === OWN, IsBuyBoxWinner: true }],
+                // Like Amazon's live answers: no MyOffer flag, only the seller id of each offer.
+                Offers: [{ SellerId: asin === OWN ? "AMOCKSELLER" : "ARIVALSELLER", IsBuyBoxWinner: true }],
               },
             },
           };

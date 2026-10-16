@@ -16,6 +16,10 @@ import { marketplaces } from "@/lib/marketplaces";
 import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queries";
 import { getSqpPerformance } from "@/lib/sqp";
 import { getProductOrders } from "@/lib/product-orders";
+import { getSerpProvider } from "@/lib/serp";
+import { DashboardControls } from "@/components/dashboard/DashboardControls";
+import { ProductOverview } from "@/components/product/ProductOverview";
+import { SectionHeader } from "@/components/PageHeader";
 import { isPeriodKey, resolvePeriod } from "@/lib/periods";
 import { connection } from "next/server";
 import { SqpTab } from "@/components/product/SqpTab";
@@ -87,7 +91,7 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       params.set("view", next.view);
       if (next.q) params.set("q", next.q);
     }
-    if (next.tab === "queries" && next.period) {
+    if ((next.tab === "queries" || next.tab === "overview") && next.period) {
       params.set("period", next.period);
       if (next.period === "custom") {
         params.set("from", next.from);
@@ -134,9 +138,12 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
         </div>
       </header>
 
-      <Suspense>
-        <DataSourceBanner />
-      </Suspense>
+      {/* The banner is about keyword ranks (sample data until a rank provider is connected). */}
+      {query.tab === "keywords" && (
+        <Suspense>
+          <DataSourceBanner />
+        </Suspense>
+      )}
 
       <nav className="-mx-4 flex gap-6 overflow-x-auto whitespace-nowrap border-b border-line px-4 text-sm sm:mx-0 sm:px-0">
         {TABS.map((t) => (
@@ -153,7 +160,11 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       </nav>
 
       {RANGED.has(query.tab) && query.tab !== "keywords" && <RangePicker query={query} href={href} />}
-      {query.tab === "overview" && <OverviewTab detail={detail} sqpQueries={sqpQueries} />}
+      {query.tab === "overview" && (
+        <Suspense fallback={<div className="card h-72 animate-pulse" />}>
+          <OverviewTab detail={detail} sqpQueries={sqpQueries} query={query} />
+        </Suspense>
+      )}
       {query.tab === "keywords" && <KeywordsTab detail={detail} query={query} href={href} />}
       {query.tab === "sales" && <SalesSection productId={product.id} range={query.range} />}
       {query.tab === "ads" && <AdsSection productId={product.id} range={query.range} />}
@@ -167,12 +178,30 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
   );
 }
 
-function OverviewTab({ detail, sqpQueries }: { detail: ProductDetail; sqpQueries: Awaited<ReturnType<typeof getSqpQueries>> }) {
+async function OverviewTab({ detail, sqpQueries, query }: { detail: ProductDetail; sqpQueries: Awaited<ReturnType<typeof getSqpQueries>>; query: Query }) {
+  // Periods depend on the current time, so render per request.
+  await connection();
+  const period = resolvePeriod(isPeriodKey(query.period) ? query.period : "last_30", query.from, query.to);
+  const ranksAreReal = !getSerpProvider().isDemo;
   const trends = keywordTrends(detail.keywords, detail.dates, detail.latestDate);
   return (
-    <div className="space-y-6">
-      <MoversAndOpportunities productId={detail.product.id} trends={trends} sqpQueries={sqpQueries} />
-      <Standing detail={detail} trends={trends} />
+    <div className="space-y-8">
+      <div className="flex justify-end">
+        <DashboardControls period={period.key} from={period.from} to={period.to} marketplace={detail.product.marketplace} marketplaceOptions={[]} />
+      </div>
+      <ProductOverview productId={detail.product.id} asin={detail.product.asin} marketplace={detail.product.marketplace} period={period} />
+      {ranksAreReal ? (
+        <section className="space-y-4">
+          <SectionHeader title="Keyword ranks" />
+          <MoversAndOpportunities productId={detail.product.id} trends={trends} sqpQueries={sqpQueries} />
+          <Standing detail={detail} trends={trends} />
+        </section>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Keyword ranks aren&apos;t shown here while they&apos;re sample data. Connect DataForSEO in{" "}
+          <Link href="/settings#rank-data" className="font-medium text-brand hover:text-brand-dark">Settings</Link> to track real Amazon rankings.
+        </p>
+      )}
     </div>
   );
 }

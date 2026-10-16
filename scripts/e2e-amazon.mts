@@ -124,7 +124,9 @@ try {
   const rival = one<{ bsr: number; buy_box_price: number; lowest_price: number; offer_count: number }>("SELECT * FROM listing_snapshots WHERE asin = 'B07COMP0001'");
   check("competitor BSR and offers", rival?.bsr === 820 && near(rival.buy_box_price, 21.99) && near(rival.lowest_price, 20.5) && rival.offer_count === 4, rival);
   check("competitor title filled", one<{ title: string }>("SELECT title FROM competitors").title === "Rival tiles B07COMP0001");
-  check("you hold the Buy Box", one<{ you_have_buy_box: number }>("SELECT you_have_buy_box FROM listing_snapshots WHERE asin = 'B0GZ8LVLGR'")?.you_have_buy_box === 1);
+  check("your seller id learned from finance data", one<{ value: string }>("SELECT value FROM settings WHERE key = 'spapi:sellerId'")?.value === "AMOCKSELLER");
+  check("you hold the Buy Box (recognised by seller id)", one<{ you_have_buy_box: number }>("SELECT you_have_buy_box FROM listing_snapshots WHERE asin = 'B0GZ8LVLGR'")?.you_have_buy_box === 1);
+  check("a rival's Buy Box isn't counted as yours", one<{ you_have_buy_box: number }>("SELECT you_have_buy_box FROM listing_snapshots WHERE asin = 'B07COMP0001'")?.you_have_buy_box === 0);
 
   console.log("Your listings become products");
   const listings = all<{ sku: string; asin: string; title: string; status: string; regular_price: number; sale_price: number | null; referral_fee: number; fba_fee: number; total_fee: number }>(
