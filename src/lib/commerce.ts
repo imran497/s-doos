@@ -63,6 +63,8 @@ export async function getSalesDetail(productId: number, days: number) {
   const before = total(prevDates);
 
   return {
+    /** The days shown and the ones before them, for comparing. */
+    range: { from: dates[0], to: dates.at(-1)!, prevFrom: prevDates[0], prevTo: prevDates.at(-1)! },
     hasData: rows.length > 0,
     currency: rows.find((r) => r.currency)?.currency || marketplaces[p.marketplace].currency,
     unitCost: p.unit_cost,

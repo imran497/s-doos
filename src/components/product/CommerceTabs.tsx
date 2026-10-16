@@ -21,29 +21,44 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 // ---- Sales & profit ----
 
+/** The order's purchase date as a local yyyy-mm-dd. */
+const orderDay = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** Orders placed in [from, to], cancelled ones left out: units, revenue, order count and profit. */
+function orderTotals(orders: ProductOrder[], from: string, to: string) {
+  const list = orders.filter((o) => o.status !== "Cancelled" && orderDay(o.date) >= from && orderDay(o.date) <= to);
+  return {
+    orders: list.length,
+    units: list.reduce((n, o) => n + o.units, 0),
+    revenue: list.reduce((n, o) => n + o.price - o.promotion, 0),
+    profit: list.reduce((n, o) => n + (o.profit ?? 0), 0),
+  };
+}
+
 export function SalesTab({ productId, sales, demo, orders }: { productId: number; sales: Sales; demo: boolean; orders: ProductOrder[] }) {
-  if (!sales.hasData) {
+  if (!sales.hasData && !orders.length) {
     return (
-      <div className="space-y-5">
-        <Empty>
+      <Empty>
         {demo ? (
           <>
-            No sales data yet. It comes from Amazon&apos;s Sales &amp; Traffic report (Brand Analytics role). Connect Seller Central in{" "}
-            <Link href="/settings" className="font-semibold text-brand">Settings</Link>, then click “Sync Amazon data”.
+            No sales yet. Connect Seller Central in <Link href="/settings" className="font-semibold text-brand">Settings</Link>, then click “Sync Amazon data”.
           </>
         ) : (
-          <>
-            Connected. Amazon builds the daily Sales &amp; Traffic reports in the background (about 3 every 5 minutes), so the last 30 days fill in over
-            an hour or two. Progress: <Link href="/settings" className="font-semibold text-brand">Settings → report queue</Link>.
-          </>
+          <>No orders for this product yet.</>
         )}
       </Empty>
-      <OrdersList orders={orders} />
-      </div>
     );
   }
   const c = sales.currency;
   const p = sales.profit;
+  const now = orderTotals(orders, sales.range.from, sales.range.to);
+  const before = orderTotals(orders, sales.range.prevFrom, sales.range.prevTo);
+  const change = (a: number, b: number) => (b ? (a - b) / b : null);
+  const days = sales.dates.length;
+  const netProfit = now.profit - (p.adSpend ?? 0);
   const lines: { label: string; value: number | null; hint?: string; strong?: boolean }[] = [
     { label: "Sales", value: p.sales },
     { label: "Promotions", value: p.promotions },
@@ -52,18 +67,41 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
     { label: "Adjustments", value: p.adjustments, hint: "Reimbursements and other corrections" },
     { label: "Ad spend", value: p.adSpend ? -p.adSpend : 0 },
     { label: `Cost of goods (${p.units} units)`, value: p.cogs == null ? null : -p.cogs },
-    { label: "Net profit", value: p.profit, strong: true },
+    { label: "Net, as posted so far", value: p.profit, strong: true, hint: "Money Amazon has posted for these days; recent orders are added once Amazon settles them" },
   ];
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatTile label="Revenue" value={formatMoney(sales.totals.revenue, c)} change={sales.change.revenue} />
-        <StatTile label="Units ordered" value={sales.totals.units.toLocaleString()} change={sales.change.units} />
-        <StatTile label="Sessions" value={sales.totals.sessions.toLocaleString()} change={sales.change.sessions} />
-        <StatTile label="Conversion" value={percent(sales.totals.conversion)} hint="Units ordered ÷ sessions" />
-        <StatTile label="Net profit" value={formatMoney(p.profit, c)} hint="After Amazon fees, refunds, ads and your cost of goods" />
+        <StatTile
+          label="Revenue"
+          value={formatMoney(now.revenue, c)}
+          change={change(now.revenue, before.revenue)}
+          hint={`From ${now.orders} orders (after promotions), ${sales.range.from} to ${sales.range.to}`}
+        />
+        <StatTile label="Units ordered" value={now.units.toLocaleString()} change={change(now.units, before.units)} hint={`${now.orders} orders, cancelled ones left out`} />
+        <StatTile
+          label="Sessions"
+          value={sales.totals.days ? sales.totals.sessions.toLocaleString() : "—"}
+          change={sales.totals.days === days ? sales.change.sessions : null}
+          hint={`Product page visits from Amazon's Sales & Traffic report: ${sales.totals.days} of ${days} days reported so far`}
+        />
+        <StatTile
+          label="Conversion"
+          value={percent(sales.totals.conversion)}
+          hint={`Units ordered ÷ sessions, on the ${sales.totals.days} days Amazon's Sales & Traffic report covers`}
+        />
+        <StatTile
+          label="Net profit"
+          value={formatMoney(netProfit, c)}
+          hint="From the orders below: Amazon payout − cost of goods − ad spend for these days"
+        />
       </div>
+      {sales.totals.days < days && (
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Sessions and conversion cover {sales.totals.days} of {days} days so far; Amazon&apos;s daily traffic reports are still arriving.
+        </p>
+      )}
 
       <OrdersList orders={orders} />
 

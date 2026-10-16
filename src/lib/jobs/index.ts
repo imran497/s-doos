@@ -58,6 +58,14 @@ export async function planReports() {
   let queued = 0;
   const now = today();
 
+  // Reports that failed only because Amazon briefly rejected the login get another chance now that
+  // the connection works (a login failure says nothing about the report itself).
+  if (isSpApiConfigured() || isAdsConfigured()) {
+    queued += db
+      .prepare("UPDATE report_requests SET status = 'queued', attempts = 0, external_id = NULL WHERE status = 'failed' AND message LIKE '%login failed%'")
+      .run().changes;
+  }
+
   const productMarkets = new Set(activeMarketplaces());
   const markets = await accountMarketplaces();
   const firstInRegion = (m: MarketplaceCode) => markets.find((x) => marketplaces[x].region === marketplaces[m].region) === m;
