@@ -31,7 +31,8 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
   const data = days.map((d) => ({ ...d, label: label(d.date) }));
   return (
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
-      <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+      {/* barGap 0: a day's spend and profit bars sit together; the gap is between days. */}
+      <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={0} barCategoryGap="25%">
         <CartesianGrid vertical={false} stroke="var(--border)" />
         <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.4} />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} fontSize={11} />
