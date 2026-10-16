@@ -30,7 +30,7 @@ export function pruneDemo() {
   db.transaction(() => {
     const clear = (tables: string[]) => tables.forEach((t) => db.prepare(`DELETE FROM ${t} WHERE source = 'demo'`).run());
     if (isSpApiConfigured()) clear(SELLER_DEMO_TABLES);
-    if (isAdsConfigured() || hasRealAdsData()) clear(["ads_search_terms", "ads_products"]);
+    if (isAdsConfigured() || hasRealAdsData()) clear(["ads_search_terms", "ads_products", "ads_campaign_asins"]);
     if (!getSerpProvider().isDemo) clear(["rank_checks"]);
   })();
 }

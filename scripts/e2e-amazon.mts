@@ -161,6 +161,11 @@ try {
   check("search term rows", one<{ n: number }>("SELECT COUNT(*) n FROM ads_search_terms").n >= 4);
   const adsDay = one<{ cost: number; clicks: number }>("SELECT cost, clicks FROM ads_products ORDER BY date LIMIT 1");
   check("two SKUs of one ASIN summed", near(adsDay.cost, 23.5) && adsDay.clicks === 27, adsDay);
+  check(
+    "campaigns linked to the ASIN they advertise",
+    all<{ campaign: string }>("SELECT campaign FROM ads_campaign_asins WHERE asin = 'B0GZ8LVLGR' AND ad_group = 'Tiles' AND source = 'ads' ORDER BY campaign").map((r) => r.campaign).join() === "SP Broad,SP Exact",
+  );
+  check("search terms keep their ad group", one<{ n: number }>("SELECT COUNT(*) n FROM ads_search_terms WHERE ad_group = 'Tiles'").n >= 4);
 
   console.log("Profit");
   // Order shipped: 48.98 sale, -18.71 fees; refund -24.49 with +2.94 commission back; storage -4.10.
@@ -226,6 +231,7 @@ try {
   const day1 = one<{ cost: number; clicks: number; sales: number; purchases: number }>("SELECT cost, clicks, sales, purchases FROM ads_products WHERE marketplace = 'CA' AND date = '2026-10-01'");
   check("advertised product CSV read (title line skipped)", up1.kind === "products" && up1.days === 2 && up1.from === "2026-10-01", up1);
   check("two campaigns summed per ASIN and day", near(day1.cost, 11.5) && day1.clicks === 15 && near(day1.sales, 79.47) && day1.purchases === 3, day1);
+  check("uploaded report links its campaigns to the ASIN", Boolean(db.prepare("SELECT 1 FROM ads_campaign_asins WHERE marketplace = 'CA' AND campaign = 'SP - Tiles, exact' AND ad_group = 'AG1' AND asin = 'B0GZ8LVLGR'").get()));
   importAdsReport(strToU8(productCsv), "advertised.csv", "CA");
   check("re-uploading the same days replaces, not doubles", near(one<{ c: number }>("SELECT SUM(cost) c FROM ads_products WHERE marketplace = 'CA'").c, 16.4));
   check("sample ads data removed once real data is uploaded", !db.prepare("SELECT 1 FROM ads_products WHERE marketplace = 'CA' AND source = 'demo'").get() && hasRealAdsData());

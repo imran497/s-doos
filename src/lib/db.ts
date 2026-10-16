@@ -194,7 +194,21 @@ CREATE TABLE IF NOT EXISTS ads_search_terms (
   sales       REAL NOT NULL DEFAULT 0,
   units       INTEGER NOT NULL DEFAULT 0,
   top_share   REAL,
+  -- Ad group the term came through (with campaign: links it to the ASINs advertised there).
+  ad_group    TEXT,
   source      TEXT NOT NULL DEFAULT 'ads'
+);
+
+-- Which ASINs each Sponsored Products campaign / ad group advertises (from the Advertised product report).
+-- Amazon's search term report has no ASIN, so this is how search terms are tied to a product.
+CREATE TABLE IF NOT EXISTS ads_campaign_asins (
+  marketplace TEXT NOT NULL,
+  campaign    TEXT NOT NULL,
+  ad_group    TEXT NOT NULL DEFAULT '',
+  asin        TEXT NOT NULL,
+  last_date   TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT 'ads',
+  PRIMARY KEY (marketplace, campaign, ad_group, asin)
 );
 CREATE INDEX IF NOT EXISTS ads_search_terms_day ON ads_search_terms (marketplace, date);
 CREATE INDEX IF NOT EXISTS ads_search_terms_term ON ads_search_terms (search_term);

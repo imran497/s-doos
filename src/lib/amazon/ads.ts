@@ -73,14 +73,14 @@ const CONFIG: Record<AdsReportKind, { reportTypeId: string; groupBy: string[]; c
   searchTerms: {
     reportTypeId: "spSearchTerm",
     groupBy: ["searchTerm"],
-    columns: ["date", "searchTerm", "keyword", "matchType", "campaignName", "impressions", "clicks", "cost", "purchases7d", "sales7d", "unitsSoldClicks7d"],
+    columns: ["date", "searchTerm", "keyword", "matchType", "campaignName", "adGroupName", "impressions", "clicks", "cost", "purchases7d", "sales7d", "unitsSoldClicks7d"],
     // Not confirmed for this report type; dropped automatically if Amazon rejects it.
     optional: ["topOfSearchImpressionShare"],
   },
   products: {
     reportTypeId: "spAdvertisedProduct",
     groupBy: ["advertiser"],
-    columns: ["date", "advertisedAsin", "advertisedSku", "impressions", "clicks", "cost", "purchases7d", "sales7d", "unitsSoldClicks7d"],
+    columns: ["date", "campaignName", "adGroupName", "advertisedAsin", "advertisedSku", "impressions", "clicks", "cost", "purchases7d", "sales7d", "unitsSoldClicks7d"],
   },
 };
 
@@ -128,6 +128,7 @@ export type AdsSearchTermRow = {
   keyword: string | null;
   matchType: string | null;
   campaign: string | null;
+  adGroup: string | null;
   impressions: number;
   clicks: number;
   cost: number;
@@ -141,6 +142,8 @@ export type AdsProductRow = {
   date: string;
   asin: string;
   sku: string | null;
+  campaign: string | null;
+  adGroup: string | null;
   impressions: number;
   clicks: number;
   cost: number;
@@ -165,6 +168,7 @@ export async function downloadAdsReport(url: string, kind: AdsReportKind) {
         keyword: s(r.keyword),
         matchType: s(r.matchType),
         campaign: s(r.campaignName),
+        adGroup: s(r.adGroupName),
         impressions: n(r.impressions),
         clicks: n(r.clicks),
         cost: n(r.cost),
@@ -180,6 +184,8 @@ export async function downloadAdsReport(url: string, kind: AdsReportKind) {
       date: String(r.date),
       asin: String(r.advertisedAsin),
       sku: s(r.advertisedSku),
+      campaign: s(r.campaignName),
+      adGroup: s(r.adGroupName),
       impressions: n(r.impressions),
       clicks: n(r.clicks),
       cost: n(r.cost),

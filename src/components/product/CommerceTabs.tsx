@@ -239,7 +239,7 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
 
       {converting.length > 0 && (
         <section className="card bg-gradient-to-br from-white to-brand-soft/60 p-6">
-          <p className="eyebrow">Converting in ads, not tracked organically</p>
+          <p className="eyebrow">Converting in ads, not tracked organically{ads.termsScope === "marketplace" ? " (all products)" : ""}</p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
             {converting.map((x) => (
               <li key={x.search_term} className="flex items-center justify-between gap-3">
@@ -259,7 +259,11 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
       <section className="card overflow-x-auto">
         <div className="px-6 pt-6">
           <p className="eyebrow">Customer search terms</p>
-          <p className="mt-1 text-xs text-muted-foreground">What shoppers typed before clicking your Sponsored Products ads (7-day attribution).</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {ads.termsScope === "product"
+              ? "What shoppers typed before clicking ads in the campaigns that advertise this product (7-day attribution). Amazon doesn't report search terms per product, so they're matched by campaign and ad group."
+              : "What shoppers typed before clicking any of your Sponsored Products ads in this marketplace (7-day attribution). Amazon doesn't report search terms per product; once your ad reports name the campaigns, only this product's campaigns are shown."}
+          </p>
         </div>
         <table className="mt-4 w-full text-sm">
           <thead className="border-y border-line text-right text-xs font-semibold text-muted-foreground">
@@ -278,7 +282,14 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
           <tbody className="divide-y divide-line text-right tabular-nums">
             {ads.terms.slice(0, 60).map((x) => (
               <tr key={x.search_term} className="hover:bg-canvas/60">
-                <td className="px-6 py-2.5 text-left font-semibold">{x.search_term}</td>
+                <td className="px-6 py-2.5 text-left font-semibold">
+                  {x.search_term}
+                  {x.shared && (
+                    <span className="ml-2 rounded bg-[#f1f3f7] px-1.5 py-0.5 text-[11px] font-medium text-[#545969]" title="This campaign also advertises other products, so this term may belong to them">
+                      shared
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5 text-muted-foreground">{compact(x.impressions)}</td>
                 <td className="px-3 py-2.5">{x.clicks}</td>
                 <td className="px-3 py-2.5">{formatMoney(x.cost, currency)}</td>

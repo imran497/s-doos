@@ -218,7 +218,11 @@ export function fillAdsDemo() {
       purchases = excluded.purchases, sales = excluded.sales, units = excluded.units, source = 'demo' WHERE ads_products.source = 'demo'`);
   db.transaction(() => {
     db.prepare("DELETE FROM ads_search_terms WHERE source = 'demo'").run();
+    const campaign = db.prepare(
+      "INSERT INTO ads_campaign_asins (marketplace, campaign, ad_group, asin, last_date, source) VALUES (?, ?, '', ?, ?, 'demo') ON CONFLICT DO NOTHING",
+    );
     for (const p of products) {
+      campaign.run(p.marketplace, `SP - ${p.asin}`, p.asin, end);
       const keywords = (db.prepare("SELECT keyword FROM keywords WHERE product_id = ?").all(p.id) as { keyword: string }[]).map((k) => k.keyword);
       const terms = [...keywords, "magnet tiles 100 pcs", "magnetic blocks for 3 year olds", "building toys for boys 4-6"];
       const unitPrice = price(p.asin);
@@ -235,7 +239,7 @@ export function fillAdsDemo() {
           const cpc = 0.55 + hash(`${t}cpc`) * 0.9;
           const purchases = Math.round(clicks * (hash(`${t}cvr`) * 0.18));
           const spend = round2(clicks * cpc);
-          term.run(p.marketplace, date, t, keywords.includes(t) ? t : null, keywords.includes(t) ? "EXACT" : "BROAD", "SP - Magnetic tiles", impressions, clicks, spend, purchases, round2(purchases * unitPrice), purchases, round2(5 + hash(`${t}top`) * 30));
+          term.run(p.marketplace, date, t, keywords.includes(t) ? t : null, keywords.includes(t) ? "EXACT" : "BROAD", `SP - ${p.asin}`, impressions, clicks, spend, purchases, round2(purchases * unitPrice), purchases, round2(5 + hash(`${t}top`) * 30));
           cost += spend;
           clicksTotal += clicks;
           impressionsTotal += impressions;
@@ -258,6 +262,7 @@ export const DEMO_TABLES = [
   "inventory_snapshots",
   "ads_search_terms",
   "ads_products",
+  "ads_campaign_asins",
   "listing_snapshots",
   "listings",
   "sqp_weekly",

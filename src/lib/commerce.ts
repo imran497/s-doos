@@ -97,20 +97,40 @@ export async function getAdsDetail(productId: number, days: number) {
   const sum = (k: "cost" | "sales" | "clicks" | "impressions" | "purchases" | "units") => daily.reduce((s, r) => s + r[k], 0);
   const revenue = (db.prepare("SELECT COALESCE(SUM(revenue), 0) v FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?").get(p.asin, p.marketplace, dates[0], dates.at(-1)) as { v: number }).v;
 
-  // Search terms aren't reported per ASIN, so this covers the marketplace's Sponsored Products.
+  // Amazon's search term report has no ASIN. Each term is tied to a product through the campaign / ad group
+  // it came from (ads_campaign_asins, filled from the Advertised product report). Before any campaign is
+  // known for the marketplace, every term is shown and labelled as such.
   const tracked = new Set((db.prepare("SELECT keyword FROM keywords WHERE product_id = ?").all(productId) as { keyword: string }[]).map((k) => k.keyword));
+  const mapped = Boolean(db.prepare("SELECT 1 FROM ads_campaign_asins WHERE marketplace = ? LIMIT 1").get(p.marketplace));
+  const linked = `EXISTS (SELECT 1 FROM ads_campaign_asins c WHERE c.marketplace = t.marketplace AND c.asin = ? AND c.campaign = t.campaign
+                    AND (c.ad_group = '' OR t.ad_group IS NULL OR c.ad_group = t.ad_group))`;
+  const shared = `EXISTS (SELECT 1 FROM ads_campaign_asins c WHERE c.marketplace = t.marketplace AND c.asin != ? AND c.campaign = t.campaign
+                    AND (c.ad_group = '' OR t.ad_group IS NULL OR c.ad_group = t.ad_group))`;
   const terms = (
     db
       .prepare(
-        `SELECT search_term, SUM(impressions) impressions, SUM(clicks) clicks, SUM(cost) cost, SUM(purchases) purchases, SUM(sales) sales, AVG(top_share) top_share
-         FROM ads_search_terms WHERE marketplace = ? AND date BETWEEN ? AND ? GROUP BY search_term ORDER BY sales DESC, clicks DESC LIMIT 200`,
+        `SELECT search_term, SUM(impressions) impressions, SUM(clicks) clicks, SUM(cost) cost, SUM(purchases) purchases, SUM(sales) sales, AVG(top_share) top_share,
+           MAX(${mapped ? shared : "0"}) shared
+         FROM ads_search_terms t WHERE marketplace = ? AND date BETWEEN ? AND ? ${mapped ? `AND ${linked}` : ""}
+         GROUP BY search_term ORDER BY sales DESC, clicks DESC LIMIT 200`,
       )
-      .all(p.marketplace, dates[0], dates.at(-1)) as { search_term: string; impressions: number; clicks: number; cost: number; purchases: number; sales: number; top_share: number | null }[]
-  ).map((t) => ({ ...t, acos: ratio(t.cost, t.sales), tracked: tracked.has(t.search_term) }));
+      .all(...(mapped ? [p.asin] : []), p.marketplace, dates[0], dates.at(-1), ...(mapped ? [p.asin] : [])) as {
+      search_term: string;
+      impressions: number;
+      clicks: number;
+      cost: number;
+      purchases: number;
+      sales: number;
+      top_share: number | null;
+      shared: 0 | 1;
+    }[]
+  ).map((t) => ({ ...t, shared: t.shared === 1, acos: ratio(t.cost, t.sales), tracked: tracked.has(t.search_term) }));
 
   return {
     currency: marketplaces[p.marketplace].currency,
     hasData: daily.length > 0 || terms.length > 0,
+    /** "product": search terms from campaigns advertising this ASIN; "marketplace": all (no campaign links yet). */
+    termsScope: (mapped ? "product" : "marketplace") as "product" | "marketplace",
     dates,
     series: dates.map((d) => {
       const r = byDate.get(d);

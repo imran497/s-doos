@@ -214,9 +214,9 @@ function storeAdsSearchTerms(m: MarketplaceCode, req: ReportRequest, rows: AdsSe
   db.transaction(() => {
     db.prepare("DELETE FROM ads_search_terms WHERE marketplace = ? AND date BETWEEN ? AND ? AND source = 'ads'").run(m, req.period_start, req.period_end);
     const save = db.prepare(`
-      INSERT INTO ads_search_terms (marketplace, date, search_term, keyword, match_type, campaign, impressions, clicks, cost,
+      INSERT INTO ads_search_terms (marketplace, date, search_term, keyword, match_type, campaign, ad_group, impressions, clicks, cost,
         purchases, sales, units, top_share, source)
-      VALUES (@m, @date, @searchTerm, @keyword, @matchType, @campaign, @impressions, @clicks, @cost, @purchases, @sales, @units, @topShare, 'ads')`);
+      VALUES (@m, @date, @searchTerm, @keyword, @matchType, @campaign, @adGroup, @impressions, @clicks, @cost, @purchases, @sales, @units, @topShare, 'ads')`);
     for (const r of rows) save.run({ m, ...r });
   })();
   return rows.length;
@@ -236,6 +236,7 @@ function storeAdsProducts(m: MarketplaceCode, req: ReportRequest, rows: AdsProdu
     for (const r of rows) {
       save.run({ m, ...r });
       if (r.sku) map.run(r.sku, r.asin);
+      if (r.campaign) rememberCampaignAsin(m, r.campaign, r.adGroup, r.asin, r.date, "ads");
     }
   })();
   return rows.length;
@@ -271,6 +272,14 @@ export function storeListings(m: MarketplaceCode, rows: ListingRow[]) {
     }
   })();
   return rows.length;
+}
+
+/** Records that a campaign / ad group advertises an ASIN, so its search terms can be shown for that product. */
+export function rememberCampaignAsin(m: MarketplaceCode, campaign: string, adGroup: string | null, asin: string, date: string, source: string) {
+  db.prepare(
+    `INSERT INTO ads_campaign_asins (marketplace, campaign, ad_group, asin, last_date, source) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(marketplace, campaign, ad_group, asin) DO UPDATE SET last_date = MAX(last_date, excluded.last_date), source = excluded.source`,
+  ).run(m, campaign, adGroup ?? "", asin, date, source);
 }
 
 // ---- Top Search Terms import ----

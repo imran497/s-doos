@@ -1,5 +1,6 @@
 import { strFromU8, unzipSync } from "fflate";
 import { db } from "./db";
+import { rememberCampaignAsin } from "./jobs/reports";
 import type { MarketplaceCode } from "./marketplaces";
 
 // Imports Sponsored Products reports downloaded from the Amazon Ads console (Measurement & reporting →
@@ -116,6 +117,7 @@ function columns(header: string[]) {
     targeting: find((n) => n === "targeting", (n) => n === "keyword"),
     matchType: find((n) => n === "match type"),
     campaign: find((n) => n === "campaign name"),
+    adGroup: find((n) => n === "ad group name"),
     impressions: find((n) => n === "impressions"),
     clicks: find((n) => n === "clicks"),
     spend: find((n) => n === "spend", (n) => n === "cost"),
@@ -152,6 +154,7 @@ export function importAdsReport(bytes: Uint8Array, filename: string, marketplace
     // Uploaded data replaces sample data, and re-uploading the same days replaces them instead of adding up.
     const table = kind === "products" ? "ads_products" : "ads_search_terms";
     db.prepare(`DELETE FROM ${table} WHERE marketplace = ? AND source = 'demo'`).run(marketplace);
+    db.prepare("DELETE FROM ads_campaign_asins WHERE marketplace = ? AND source = 'demo'").run(marketplace);
     db.prepare(`DELETE FROM ${table} WHERE marketplace = ? AND date BETWEEN ? AND ? AND source = 'upload'`).run(marketplace, from, to);
 
     if (kind === "products") {
@@ -165,6 +168,8 @@ export function importAdsReport(bytes: Uint8Array, filename: string, marketplace
       for (const { r, date } of rows) {
         const asin = v(r, col.asin).trim().toUpperCase();
         if (!asin) continue;
+        const campaign = v(r, col.campaign).trim();
+        if (campaign) rememberCampaignAsin(marketplace, campaign, v(r, col.adGroup).trim() || null, asin, date!, "upload");
         save.run({
           m: marketplace,
           date,
@@ -179,14 +184,14 @@ export function importAdsReport(bytes: Uint8Array, filename: string, marketplace
       }
     } else {
       const save = db.prepare(`
-        INSERT INTO ads_search_terms (marketplace, date, search_term, keyword, match_type, campaign, impressions, clicks, cost, purchases, sales, units, top_share, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'upload')`);
+        INSERT INTO ads_search_terms (marketplace, date, search_term, keyword, match_type, campaign, ad_group, impressions, clicks, cost, purchases, sales, units, top_share, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'upload')`);
       for (const { r, date } of rows) {
         const term = v(r, col.searchTerm).trim();
         if (!term) continue;
         const match = v(r, col.matchType).trim().toUpperCase();
         save.run(marketplace, date, term, v(r, col.targeting).trim() || null, match && match !== "-" ? match : null, v(r, col.campaign).trim() || null,
-          num(v(r, col.impressions)), num(v(r, col.clicks)), num(v(r, col.spend)), num(v(r, col.orders)), num(v(r, col.sales)), num(v(r, col.units)));
+          v(r, col.adGroup).trim() || null, num(v(r, col.impressions)), num(v(r, col.clicks)), num(v(r, col.spend)), num(v(r, col.orders)), num(v(r, col.sales)), num(v(r, col.units)));
       }
     }
   })();

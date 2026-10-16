@@ -169,13 +169,13 @@ const financePages = [
 function adsRows(r) {
   if (r.kind === "spSearchTerm") {
     return [
-      { date: r.start, searchTerm: "Magnetic Tiles", keyword: "magnetic tiles", matchType: "EXACT", campaignName: "SP Exact", impressions: 1000, clicks: 20, cost: 18.5, purchases7d: 3, sales7d: 73.47, unitsSoldClicks7d: 3 },
-      { date: r.end, searchTerm: "magnet blocks", keyword: "magnetic tiles", matchType: "BROAD", campaignName: "SP Broad", impressions: 400, clicks: 6, cost: 4.2, purchases7d: 0, sales7d: 0, unitsSoldClicks7d: 0 },
+      { date: r.start, searchTerm: "Magnetic Tiles", keyword: "magnetic tiles", matchType: "EXACT", campaignName: "SP Exact", adGroupName: "Tiles", impressions: 1000, clicks: 20, cost: 18.5, purchases7d: 3, sales7d: 73.47, unitsSoldClicks7d: 3 },
+      { date: r.end, searchTerm: "magnet blocks", keyword: "magnetic tiles", matchType: "BROAD", campaignName: "SP Broad", adGroupName: "Tiles", impressions: 400, clicks: 6, cost: 4.2, purchases7d: 0, sales7d: 0, unitsSoldClicks7d: 0 },
     ];
   }
   return [
-    { date: r.start, advertisedAsin: OWN, advertisedSku: "KB-60", impressions: 1400, clicks: 26, cost: 22.7, purchases7d: 3, sales7d: 73.47, unitsSoldClicks7d: 3 },
-    { date: r.start, advertisedAsin: OWN, advertisedSku: "KB-60-B", impressions: 100, clicks: 1, cost: 0.8, purchases7d: 0, sales7d: 0, unitsSoldClicks7d: 0 },
+    { date: r.start, campaignName: "SP Exact", adGroupName: "Tiles", advertisedAsin: OWN, advertisedSku: "KB-60", impressions: 1400, clicks: 26, cost: 22.7, purchases7d: 3, sales7d: 73.47, unitsSoldClicks7d: 3 },
+    { date: r.start, campaignName: "SP Broad", adGroupName: "Tiles", advertisedAsin: OWN, advertisedSku: "KB-60-B", impressions: 100, clicks: 1, cost: 0.8, purchases7d: 0, sales7d: 0, unitsSoldClicks7d: 0 },
   ];
 }
 
