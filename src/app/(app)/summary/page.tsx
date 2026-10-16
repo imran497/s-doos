@@ -6,7 +6,7 @@ import { PageHeader, SectionHeader } from "@/components/PageHeader";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSummary } from "@/lib/summary";
-import { APP_TIME_ZONE } from "@/lib/timezone";
+import { APP_TIME_ZONE, todayInAppZone } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Summary" };
@@ -28,6 +28,8 @@ const signed = (n: number) => (n < 0 ? `(${formatValue("money", -n, "USD")})` : 
 /** An ISO timestamp or "yyyy-mm-dd hh:mm:ss" (server time, Central) as "Oct 16, 1:55 PM CDT". */
 const stamp = (v: string) =>
   new Date(v.includes("T") ? v : v.replace(" ", "T")).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: APP_TIME_ZONE, timeZoneName: "short" });
+/** The Central Time calendar day of an ISO timestamp, as yyyy-mm-dd. */
+const dayInAppZone = (iso: string) => todayInAppZone(new Date(iso));
 const short = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
 
 type Line = { label: string; value: string; note: string; tone?: "good" | "bad"; strong?: boolean; href?: string };
@@ -79,8 +81,28 @@ async function SummaryContent() {
     { label: "Net cash incl. inventory in transit", value: signed(r.netCashWithTransit), note: "Same, also counting inventory paid for that hasn't arrived.", tone: tone(r.netCashWithTransit), strong: true },
   ];
 
+  const c = s.coverage;
+  const from = [c.ordersSince, c.payoutSince].filter(Boolean).sort()[0] ?? null;
+  const through = c.newestOrder ? dayInAppZone(c.newestOrder) : null;
+
   return (
     <>
+      <div className="-mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border bg-card px-4 py-2.5 text-[13px] shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
+        <span>
+          <span className="text-muted-foreground">Covers </span>
+          <b className="font-semibold">
+            {short(from) ?? "—"} – {short(through) ?? "—"}
+          </b>
+        </span>
+        <span className="text-muted-foreground">
+          Orders synced <span className="font-medium text-foreground">{c.ordersSynced ? stamp(c.ordersSynced) : "—"}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Payouts settled through <span className="font-medium text-foreground">{short(c.latestPayout) ?? "—"}</span>
+          <span className="text-xs"> (later sales are estimated until Amazon pays)</span>
+        </span>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-lg border bg-card px-4 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
