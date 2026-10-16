@@ -32,7 +32,7 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
   return (
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       {/* barGap 0: a day's spend and profit bars sit together; the gap is between days. */}
-      <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={0} barCategoryGap="25%">
+      <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={0} barSize={days.length > 20 ? 10 : 14}>
         <CartesianGrid vertical={false} stroke="var(--border)" />
         <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.4} />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} fontSize={11} />
@@ -88,9 +88,9 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
             );
           }}
         />
-        <Bar dataKey="cost" fill="var(--color-cost)" radius={[2, 2, 0, 0]} maxBarSize={14} isAnimationActive={false} />
+        <Bar dataKey="cost" fill="var(--color-cost)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
         {/* Profit after ads next to spend: green above zero, red below. */}
-        <Bar dataKey="profitAfterAds" radius={[2, 2, 0, 0]} maxBarSize={14} isAnimationActive={false}>
+        <Bar dataKey="profitAfterAds" radius={[2, 2, 0, 0]} isAnimationActive={false}>
           {data.map((d) => (
             <Cell key={d.date} fill={d.profitAfterAds < 0 ? "var(--destructive)" : "var(--color-profitAfterAds)"} />
           ))}
