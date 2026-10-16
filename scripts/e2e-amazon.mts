@@ -148,6 +148,10 @@ try {
   console.log("Search Query Performance");
   const sqp = one<{ search_query: string; query_volume: number; asin_purchases: number }>("SELECT * FROM sqp_weekly");
   check("SQP row stored", sqp?.search_query === "magnetic tiles" && sqp.query_volume === 5200 && sqp.asin_purchases === 18, sqp);
+  const detailRow = one<{ query_score: number; asin_click_price: number; market_click_price: number; market_purchase_price: number }>("SELECT * FROM sqp_weekly LIMIT 1");
+  check("query rank and median prices stored", detailRow.query_score === 1 && near(detailRow.asin_click_price, 24.49) && near(detailRow.market_click_price, 29.99) && near(detailRow.market_purchase_price, 27.99), detailRow);
+  check("8 weeks requested for the active product", one<{ n: number }>("SELECT COUNT(DISTINCT period_start) n FROM report_requests WHERE kind = 'sqp' AND scope = ?", String(productId)).n === 8);
+  check("no SQP requested for inactive listings", !db.prepare("SELECT 1 FROM report_requests r JOIN products p ON p.id = CAST(r.scope AS INTEGER) WHERE r.kind = 'sqp' AND p.asin = 'B0SECOND01'").get());
 
   console.log("Amazon Ads");
   check("US profile chosen", one<{ value: string }>("SELECT value FROM settings WHERE key = 'adsProfile:US'")?.value === "111");

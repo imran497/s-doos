@@ -34,11 +34,11 @@ export type SidebarBadges = { security: number; lowStock: number };
 
 const PRODUCT_TABS = [
   { tab: "overview", label: "Overview", icon: Sparkles },
+  { tab: "queries", label: "Search Query Performance", icon: SearchCheck },
   { tab: "keywords", label: "Keywords", icon: KeyRound },
   { tab: "sales", label: "Sales & profit", icon: Wallet },
   { tab: "ads", label: "Ads", icon: Megaphone },
   { tab: "competitors", label: "Competitors", icon: Swords },
-  { tab: "queries", label: "Search queries", icon: SearchCheck },
 ] as const;
 
 const MORE = [

@@ -10,11 +10,12 @@ import { CheckNowButton } from "@/components/product/CheckNowButton";
 import { KeywordTable } from "@/components/product/KeywordTable";
 import { AdsTab, CompetitorsTab, SalesTab } from "@/components/product/CommerceTabs";
 import { BriefingCard, MoversAndOpportunities, Standing } from "@/components/product/Overview";
-import { DeleteProductButton, TrackButton } from "@/components/product/SmallActions";
+import { DeleteProductButton } from "@/components/product/SmallActions";
 import { buildBriefing, keywordTrends } from "@/lib/insights";
 import { marketplaces } from "@/lib/marketplaces";
-import { compact, pct } from "@/lib/metrics";
 import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queries";
+import { getSqpPerformance } from "@/lib/sqp";
+import { SqpTab } from "@/components/product/SqpTab";
 import { isAdsConfigured } from "@/lib/amazon/ads";
 import { isSpApiConfigured } from "@/lib/amazon/spapi";
 import { commerceSignals, getAdsDetail, getCompetitorDetail, getKeywordAds, getSalesDetail } from "@/lib/commerce";
@@ -23,11 +24,11 @@ export const metadata: Metadata = { title: "Product" };
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "queries", label: "Search Query Performance" },
   { id: "keywords", label: "Keywords" },
   { id: "sales", label: "Sales & profit" },
   { id: "ads", label: "Ads" },
   { id: "competitors", label: "Competitors" },
-  { id: "queries", label: "Search queries" },
 ] as const;
 
 /** Tabs that use the 7/14/30-day range picker. */
@@ -39,6 +40,8 @@ type Query = {
   mode: "organic" | "sponsored";
   view: "list" | "grid";
   q: string;
+  /** Search Query Performance period: a week start date or "4w". */
+  week: string;
 };
 
 export default function ProductPage(props: PageProps<"/products/[id]">) {
@@ -59,6 +62,7 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
     mode: one(sp.mode) === "sponsored" ? "sponsored" : "organic",
     view: one(sp.view) === "grid" ? "grid" : "list",
     q: one(sp.q).trim().toLowerCase(),
+    week: one(sp.week),
   };
 
   const detail = await getProductDetail(Number(id), query.range);
@@ -76,6 +80,7 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       params.set("view", next.view);
       if (next.q) params.set("q", next.q);
     }
+    if (next.tab === "queries" && next.week) params.set("week", next.week);
     return `/products/${product.id}?${params}`;
   };
 
@@ -140,7 +145,11 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       {query.tab === "sales" && <SalesSection productId={product.id} range={query.range} />}
       {query.tab === "ads" && <AdsSection productId={product.id} range={query.range} />}
       {query.tab === "competitors" && <CompetitorsSection productId={product.id} range={query.range} />}
-      {query.tab === "queries" && <QueriesTab productId={product.id} rows={sqpQueries} />}
+      {query.tab === "queries" && (
+        <Suspense fallback={<div className="card h-72 animate-pulse" />}>
+          <SqpSection productId={product.id} week={query.week} currency={market.currency} />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -220,56 +229,18 @@ async function KeywordsTab({ detail, query, href }: { detail: ProductDetail; que
   );
 }
 
-function QueriesTab({ productId, rows }: { productId: number; rows: Awaited<ReturnType<typeof getSqpQueries>> }) {
-  if (!rows.length) {
-    if (!isSpApiConfigured()) return <SpApiNote what="Search query data" />;
+async function SqpSection({ productId, week, currency }: { productId: number; week: string; currency: string }) {
+  const data = await getSqpPerformance(productId, week);
+  if (!data.period) {
+    if (!isSpApiConfigured()) return <SpApiNote what="Search Query Performance" />;
     return (
       <div className="card p-10 text-center text-sm text-muted-foreground">
-        No SQP data yet. Open <Link href="/settings" className="font-semibold text-brand">Settings</Link> and click “Sync Amazon data”. Amazon takes a few
-        minutes to build each weekly report.
+        No Search Query Performance data yet. Amazon publishes it weekly for brand-registered products; SellerDoos fetches the last 8 weeks
+        automatically. You can also click “Sync Amazon data” in <Link href="/settings" className="font-semibold text-brand">Settings</Link>.
       </div>
     );
   }
-  return (
-    <div className="card overflow-x-auto">
-      <div className="px-6 pt-6">
-        <p className="eyebrow">
-          Week of {rows[0].week_start} to {rows[0].week_end}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">Every search where shoppers saw your product, from Amazon&apos;s Search Query Performance report.</p>
-      </div>
-      <table className="mt-4 w-full text-sm">
-        <thead className="border-y border-line text-right text-xs font-semibold text-muted-foreground">
-          <tr>
-            <th className="px-6 py-3 text-left">Search query</th>
-            <th className="px-3 py-3">Searches</th>
-            <th className="px-3 py-3">Impression share</th>
-            <th className="px-3 py-3">Click share</th>
-            <th className="px-3 py-3">Cart adds</th>
-            <th className="px-3 py-3">Sales</th>
-            <th className="px-3 py-3">Sales share</th>
-            <th className="px-6 py-3" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line text-right tabular-nums">
-          {rows.map((r) => (
-            <tr key={r.search_query} className="hover:bg-canvas/60">
-              <td className="px-6 py-3 text-left font-semibold">{r.search_query}</td>
-              <td className="px-3 py-3">{r.query_volume?.toLocaleString() ?? "–"}</td>
-              <td className="px-3 py-3">{pct(r.asin_impressions, r.impressions)}</td>
-              <td className="px-3 py-3">{pct(r.asin_clicks, r.clicks)}</td>
-              <td className="px-3 py-3">{compact(r.asin_cart_adds)}</td>
-              <td className="px-3 py-3">{compact(r.asin_purchases)}</td>
-              <td className="px-3 py-3">{pct(r.asin_purchases, r.purchases)}</td>
-              <td className="px-6 py-3">
-                {r.tracked ? <span className="text-xs font-semibold text-brand">Tracking</span> : <TrackButton productId={productId} keyword={r.search_query} />}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  return <SqpTab productId={productId} data={data} currency={currency} />;
 }
 
 function SpApiNote({ what }: { what: string }) {

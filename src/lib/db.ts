@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS sqp_weekly (
   asin_cart_adds   INTEGER,
   purchases        INTEGER,
   asin_purchases   INTEGER,
+  -- Amazon's rank of the query by search volume (1 = most searched), and median prices (yours vs. all
+  -- products) at which shoppers clicked and bought for this query.
+  query_score      INTEGER,
+  asin_click_price REAL,
+  market_click_price REAL,
+  asin_purchase_price REAL,
+  market_purchase_price REAL,
   UNIQUE (product_id, week_start, search_query)
 );
 

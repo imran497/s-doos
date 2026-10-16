@@ -79,14 +79,17 @@ const handlers: Record<string, Handler> = {
         const rows = parseSqp(await reportText(doc, m));
         const save = db.prepare(`
           INSERT INTO sqp_weekly (product_id, week_start, week_end, search_query, query_volume, impressions, asin_impressions,
-            clicks, asin_clicks, cart_adds, asin_cart_adds, purchases, asin_purchases, source)
+            clicks, asin_clicks, cart_adds, asin_cart_adds, purchases, asin_purchases, query_score, asin_click_price, market_click_price,
+            asin_purchase_price, market_purchase_price, source)
           VALUES (@productId, @weekStart, @weekEnd, @searchQuery, @queryVolume, @impressions, @asinImpressions,
-            @clicks, @asinClicks, @cartAdds, @asinCartAdds, @purchases, @asinPurchases, 'spapi')
+            @clicks, @asinClicks, @cartAdds, @asinCartAdds, @purchases, @asinPurchases, @queryScore, @asinClickPrice, @marketClickPrice,
+            @asinPurchasePrice, @marketPurchasePrice, 'spapi')
           ON CONFLICT(product_id, week_start, search_query) DO UPDATE SET
             query_volume = excluded.query_volume, impressions = excluded.impressions, asin_impressions = excluded.asin_impressions,
             clicks = excluded.clicks, asin_clicks = excluded.asin_clicks, cart_adds = excluded.cart_adds,
             asin_cart_adds = excluded.asin_cart_adds, purchases = excluded.purchases, asin_purchases = excluded.asin_purchases,
-            source = 'spapi'`);
+            query_score = excluded.query_score, asin_click_price = excluded.asin_click_price, market_click_price = excluded.market_click_price,
+            asin_purchase_price = excluded.asin_purchase_price, market_purchase_price = excluded.market_purchase_price, source = 'spapi'`);
         db.transaction(() => {
           for (const row of rows) save.run({ productId: Number(req.scope), weekStart: req.period_start, weekEnd: req.period_end, ...row });
         })();

@@ -91,9 +91,29 @@ export async function planReports() {
       // or research seed words to filter it by.
       const week = lastFullWeek();
       if (productMarkets.has(m) && researchSeeds().length && enqueueReport("search_terms", m, week.start, week.end)) queued++;
-      for (const p of db.prepare("SELECT id FROM products WHERE marketplace = ?").all(m) as { id: number }[]) {
-        if (enqueueReport("sqp", String(p.id), week.start, week.end)) queued++;
+      // Search Query Performance: the last 8 weeks, for products with an active listing (or added by hand).
+      // Inactive listings get no searches, so asking Amazon would only return empty reports.
+      const sqpProducts = db
+        .prepare(
+          `SELECT id FROM products p WHERE marketplace = ? AND (
+             NOT EXISTS (SELECT 1 FROM listings l WHERE l.marketplace = p.marketplace AND l.asin = p.asin)
+             OR EXISTS (SELECT 1 FROM listings l WHERE l.marketplace = p.marketplace AND l.asin = p.asin AND l.status = 'Active'))`,
+        )
+        .all(m) as { id: number }[];
+      for (const p of sqpProducts) {
+        for (let w = 0; w < 8; w++) {
+          if (enqueueReport("sqp", String(p.id), addDays(week.start, -7 * w), addDays(week.end, -7 * w))) queued++;
+        }
       }
+      // Weeks fetched before query rank and prices were stored: fetch them once more (at most daily).
+      queued += db
+        .prepare(
+          `UPDATE report_requests SET status = 'queued', attempts = 0, external_id = NULL, message = 'refreshing for more detail'
+           WHERE kind = 'sqp' AND status = 'done' AND updated_at < datetime('now', 'localtime', '-1 day')
+             AND EXISTS (SELECT 1 FROM sqp_weekly s WHERE s.product_id = CAST(report_requests.scope AS INTEGER)
+                         AND s.week_start = report_requests.period_start AND s.query_score IS NULL AND s.source = 'spapi')`,
+        )
+        .run().changes;
     }
 
     if (isAdsConfigured()) {

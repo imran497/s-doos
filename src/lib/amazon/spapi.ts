@@ -159,21 +159,28 @@ export type SqpRow = {
   asinCartAdds: number | null;
   purchases: number | null;
   asinPurchases: number | null;
+  queryScore: number | null;
+  asinClickPrice: number | null;
+  marketClickPrice: number | null;
+  asinPurchasePrice: number | null;
+  marketPurchasePrice: number | null;
 };
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-/** GET_BRAND_ANALYTICS_SEARCH_QUERY_PERFORMANCE_REPORT */
+/** GET_BRAND_ANALYTICS_SEARCH_QUERY_PERFORMANCE_REPORT (JSON): one entry per search query for the ASIN. */
 export function parseSqp(text: string): SqpRow[] {
+  type Price = { amount?: number } | null;
   const json = JSON.parse(text) as {
     dataByAsin?: {
-      searchQueryData?: { searchQuery?: string; searchQueryVolume?: number };
+      searchQueryData?: { searchQuery?: string; searchQueryScore?: number; searchQueryVolume?: number };
       impressionData?: { totalQueryImpressionCount?: number; asinImpressionCount?: number };
-      clickData?: { totalClickCount?: number; asinClickCount?: number };
+      clickData?: { totalClickCount?: number; asinClickCount?: number; totalMedianClickPrice?: Price; asinMedianClickPrice?: Price };
       cartAddData?: { totalCartAddCount?: number; asinCartAddCount?: number };
-      purchaseData?: { totalPurchaseCount?: number; asinPurchaseCount?: number };
+      purchaseData?: { totalPurchaseCount?: number; asinPurchaseCount?: number; totalMedianPurchasePrice?: Price; asinMedianPurchasePrice?: Price };
     }[];
   };
+  const price = (p: Price | undefined) => (p && typeof p.amount === "number" ? p.amount : null);
   return (json.dataByAsin ?? [])
     .filter((d) => d.searchQueryData?.searchQuery)
     .map((d) => ({
@@ -187,6 +194,11 @@ export function parseSqp(text: string): SqpRow[] {
       asinCartAdds: num(d.cartAddData?.asinCartAddCount),
       purchases: num(d.purchaseData?.totalPurchaseCount),
       asinPurchases: num(d.purchaseData?.asinPurchaseCount),
+      queryScore: num(d.searchQueryData?.searchQueryScore),
+      asinClickPrice: price(d.clickData?.asinMedianClickPrice),
+      marketClickPrice: price(d.clickData?.totalMedianClickPrice),
+      asinPurchasePrice: price(d.purchaseData?.asinMedianPurchasePrice),
+      marketPurchasePrice: price(d.purchaseData?.totalMedianPurchasePrice),
     }));
 }
 

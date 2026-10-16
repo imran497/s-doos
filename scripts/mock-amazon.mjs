@@ -99,9 +99,9 @@ function sqpDocument(asin) {
         asin,
         searchQueryData: { searchQuery: "Magnetic Tiles", searchQueryScore: 1, searchQueryVolume: 5200 },
         impressionData: { totalQueryImpressionCount: 60000, asinImpressionCount: 3000, asinImpressionShare: 0.05 },
-        clickData: { totalClickCount: 2100, asinClickCount: 150 },
+        clickData: { totalClickCount: 2100, asinClickCount: 150, totalMedianClickPrice: { amount: 29.99, currencyCode: "USD" }, asinMedianClickPrice: { amount: 24.49, currencyCode: "USD" } },
         cartAddData: { totalCartAddCount: 500, asinCartAddCount: 40 },
-        purchaseData: { totalPurchaseCount: 210, asinPurchaseCount: 18 },
+        purchaseData: { totalPurchaseCount: 210, asinPurchaseCount: 18, totalMedianPurchasePrice: { amount: 27.99, currencyCode: "USD" }, asinMedianPurchasePrice: { amount: 24.49, currencyCode: "USD" } },
       },
     ],
   };
