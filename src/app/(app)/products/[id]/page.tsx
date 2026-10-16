@@ -317,8 +317,8 @@ async function SalesSection({ productId, range }: { productId: number; range: nu
 }
 
 async function AdsSection({ productId, range }: { productId: number; range: number }) {
-  const ads = await getAdsDetail(productId, range);
-  return ads && <AdsTab productId={productId} ads={ads} currency={ads.currency} demo={!isAdsConfigured()} />;
+  const [ads, orders] = await Promise.all([getAdsDetail(productId, range), getProductOrders(productId)]);
+  return ads && <AdsTab productId={productId} ads={ads} currency={ads.currency} demo={!isAdsConfigured()} orders={orders} />;
 }
 
 async function CompetitorsSection({ productId, range }: { productId: number; range: number }) {

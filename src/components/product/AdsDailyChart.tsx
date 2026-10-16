@@ -4,11 +4,23 @@ import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "
 import { formatValue } from "@/components/dashboard/format";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
-export type AdsDay = { date: string; cost: number | null; sales: number | null; clicks: number | null; impressions: number | null; purchases: number | null };
+export type AdsDay = {
+  date: string;
+  cost: number | null;
+  sales: number | null;
+  clicks: number | null;
+  impressions: number | null;
+  purchases: number | null;
+  /** All orders that day: Amazon payout − cost of goods. */
+  profit: number;
+  /** profit − ad spend. */
+  profitAfterAds: number;
+};
 
 const config = {
   sales: { label: "Ad sales", color: "var(--chart-1)" },
   cost: { label: "Ad spend", color: "var(--chart-2)" },
+  profitAfterAds: { label: "Profit after ads", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 const label = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -29,6 +41,10 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as AdsDay & { label: string };
             const reported = d.cost != null || d.sales != null;
+            const profitRows: [string, string][] = [
+              ["Profit on sales", money(d.profit)],
+              ["Profit after ads", money(d.profitAfterAds)],
+            ];
             const rows: [string, string][] = reported
               ? [
                   ["Ad sales", money(d.sales)],
@@ -43,6 +59,16 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
             return (
               <div className="min-w-44 rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
                 <p className="mb-1.5 font-medium text-foreground">{new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
+                {profitRows.map(([k, v], i) => (
+                  <div key={k} className="flex items-center justify-between gap-4 py-0.5">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      {i === 1 && <span className="inline-block size-2 rounded-sm" style={{ background: "var(--chart-5)" }} />}
+                      {k}
+                    </span>
+                    <span className={`font-medium tabular-nums ${(i === 0 ? d.profit : d.profitAfterAds) < 0 ? "text-destructive" : "text-foreground"}`}>{v}</span>
+                  </div>
+                ))}
+                <div className="my-1 border-t" />
                 {reported ? (
                   rows.map(([k, v], i) => (
                     <div key={k} className="flex items-center justify-between gap-4 py-0.5">
@@ -54,13 +80,14 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted-foreground">Not reported yet</p>
+                  <p className="text-muted-foreground">Ads not reported yet</p>
                 )}
               </div>
             );
           }}
         />
         <Bar dataKey="cost" fill="var(--color-cost)" radius={[2, 2, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+        <Line dataKey="profitAfterAds" type="linear" stroke="var(--color-profitAfterAds)" strokeWidth={2} dot={false} activeDot={{ r: 3.5, strokeWidth: 0 }} isAnimationActive={false} />
         <Line dataKey="sales" type="linear" stroke="var(--color-sales)" strokeWidth={2} dot={false} activeDot={{ r: 3.5, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false} />
       </ComposedChart>
     </ChartContainer>

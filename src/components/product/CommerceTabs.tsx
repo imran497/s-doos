@@ -180,7 +180,7 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
 
 // ---- Ads ----
 
-export function AdsTab({ productId, ads, currency, demo }: { productId: number; ads: Ads; currency: string; demo: boolean }) {
+export function AdsTab({ productId, ads, currency, demo, orders }: { productId: number; ads: Ads; currency: string; demo: boolean; orders: ProductOrder[] }) {
   if (!ads.hasData) {
     return (
       <Empty>
@@ -191,9 +191,24 @@ export function AdsTab({ productId, ads, currency, demo }: { productId: number; 
   }
   const t = ads.totals;
   const converting = ads.terms.filter((x) => x.purchases > 0 && !x.tracked).slice(0, 5);
+  // Profit per day from the orders (payout − cost of goods), and after that day's ad spend.
+  const profitByDay = new Map<string, number>();
+  for (const o of orders) {
+    if (o.status === "Cancelled" || o.profit == null) continue;
+    const day = orderDay(o.date);
+    profitByDay.set(day, (profitByDay.get(day) ?? 0) + o.profit);
+  }
+  const days = ads.series.map((d) => {
+    const profit = profitByDay.get(d.date) ?? 0;
+    return { ...d, profit, profitAfterAds: profit - (d.cost ?? 0) };
+  });
+  const profitOnSales = days.reduce((n, d) => n + d.profit, 0);
+  const profitAfterAds = profitOnSales - t.cost;
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile label="Profit on sales" value={formatMoney(profitOnSales, currency)} hint="All orders of this product in these days: Amazon payout − cost of goods" />
+        <StatTile label="Profit after ads" value={formatMoney(profitAfterAds, currency)} hint="Profit on sales − ad spend" />
         <StatTile label="Ad spend" value={formatMoney(t.cost, currency)} />
         <StatTile label="Ad sales" value={formatMoney(t.sales, currency)} />
         <StatTile label="ACoS" value={percent(ads.acos)} hint="Ad spend ÷ ad sales" />
@@ -203,7 +218,7 @@ export function AdsTab({ productId, ads, currency, demo }: { productId: number; 
 
       <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[13px] font-semibold">Ad spend and ad sales per day</h3>
+          <h3 className="text-[13px] font-semibold">Ads and profit per day</h3>
           <span className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[var(--chart-1)]" /> Ad sales
@@ -211,11 +226,14 @@ export function AdsTab({ productId, ads, currency, demo }: { productId: number; 
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[var(--chart-2)]" /> Ad spend
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-[var(--chart-5)]" /> Profit after ads
+            </span>
             <span>Hover a day for details</span>
           </span>
         </div>
         <div className="mt-3">
-          <AdsDailyChart days={ads.series} currency={currency} />
+          <AdsDailyChart days={days} currency={currency} />
         </div>
       </section>
 
