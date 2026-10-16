@@ -9,9 +9,9 @@ import { AddKeywordsButton } from "@/components/product/AddKeywordsButton";
 import { CheckNowButton } from "@/components/product/CheckNowButton";
 import { KeywordTable } from "@/components/product/KeywordTable";
 import { AdsTab, CompetitorsTab, SalesTab } from "@/components/product/CommerceTabs";
-import { BriefingCard, MoversAndOpportunities, Standing } from "@/components/product/Overview";
+import { MoversAndOpportunities, Standing } from "@/components/product/Overview";
 import { DeleteProductButton } from "@/components/product/SmallActions";
-import { buildBriefing, keywordTrends } from "@/lib/insights";
+import { keywordTrends } from "@/lib/insights";
 import { marketplaces } from "@/lib/marketplaces";
 import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queries";
 import { getSqpPerformance } from "@/lib/sqp";
@@ -21,7 +21,7 @@ import { connection } from "next/server";
 import { SqpTab } from "@/components/product/SqpTab";
 import { isAdsConfigured } from "@/lib/amazon/ads";
 import { isSpApiConfigured } from "@/lib/amazon/spapi";
-import { commerceSignals, getAdsDetail, getCompetitorDetail, getKeywordAds, getSalesDetail } from "@/lib/commerce";
+import { getAdsDetail, getCompetitorDetail, getKeywordAds, getSalesDetail } from "@/lib/commerce";
 
 export const metadata: Metadata = { title: "Product" };
 
@@ -167,12 +167,10 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
   );
 }
 
-async function OverviewTab({ detail, sqpQueries }: { detail: ProductDetail; sqpQueries: Awaited<ReturnType<typeof getSqpQueries>> }) {
+function OverviewTab({ detail, sqpQueries }: { detail: ProductDetail; sqpQueries: Awaited<ReturnType<typeof getSqpQueries>> }) {
   const trends = keywordTrends(detail.keywords, detail.dates, detail.latestDate);
-  const briefing = buildBriefing(trends, sqpQueries.filter((q) => !q.tracked).length, await commerceSignals(detail.product.id));
   return (
     <div className="space-y-6">
-      <BriefingCard briefing={briefing} latestDate={detail.latestDate} />
       <MoversAndOpportunities productId={detail.product.id} trends={trends} sqpQueries={sqpQueries} />
       <Standing detail={detail} trends={trends} />
     </div>
