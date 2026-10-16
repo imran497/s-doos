@@ -62,8 +62,12 @@ export async function planReports() {
   // the connection works (a login failure says nothing about the report itself).
   if (isSpApiConfigured() || isAdsConfigured()) {
     queued += db
-      .prepare("UPDATE report_requests SET status = 'queued', attempts = 0, external_id = NULL WHERE status = 'failed' AND message LIKE '%login failed%'")
+      .prepare(
+        "UPDATE report_requests SET status = 'queued', attempts = 0, external_id = NULL, message = 'Retrying after an earlier sign-in problem' WHERE status = 'failed' AND message LIKE '%login failed%'",
+      )
       .run().changes;
+    // Already waiting for another try: say so instead of showing the old error.
+    db.prepare("UPDATE report_requests SET message = 'Retrying after an earlier sign-in problem' WHERE status = 'queued' AND attempts = 0 AND message LIKE '%login failed%'").run();
   }
 
   const productMarkets = new Set(activeMarketplaces());

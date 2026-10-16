@@ -6,6 +6,7 @@ import { PageHeader, SectionHeader } from "@/components/PageHeader";
 import { ProductThumb } from "@/components/ProductThumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSummary } from "@/lib/summary";
+import { APP_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Summary" };
@@ -24,6 +25,9 @@ export default function SummaryPage() {
 const money = (n: number | null) => (n == null ? "—" : formatValue("money", n, "USD"));
 /** Accounting style: losses in brackets. */
 const signed = (n: number) => (n < 0 ? `(${formatValue("money", -n, "USD")})` : formatValue("money", n, "USD"));
+/** An ISO timestamp or "yyyy-mm-dd hh:mm:ss" (server time, Central) as "Oct 16, 1:55 PM CDT". */
+const stamp = (v: string) =>
+  new Date(v.includes("T") ? v : v.replace(" ", "T")).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: APP_TIME_ZONE, timeZoneName: "short" });
 const short = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null);
 
 type Line = { label: string; value: string; note: string; tone?: "good" | "bad"; strong?: boolean; href?: string };
@@ -199,6 +203,10 @@ function Coverage({ s }: { s: Awaited<ReturnType<typeof getSummary>> }) {
       <p className="font-medium text-foreground">Where these numbers come from</p>
       <ul className="mt-1.5 list-disc space-y-1 pl-4">
         <li>Orders from {short(c.ordersSince) ?? "—"} and Amazon payouts from {short(c.payoutSince) ?? "—"} onward, synced from Seller Central.</li>
+        <li>
+          Newest order {c.newestOrder ? stamp(c.newestOrder) : "—"}; orders last synced {c.ordersSynced ? stamp(c.ordersSynced) : "—"}; latest payout{" "}
+          {short(c.latestPayout) ?? "—"} (Amazon pays about a week after delivery).
+        </li>
         <li>
           Inventory from your <Link href="/shipments" className="text-brand hover:text-brand-dark">shipments</Link>; overhead from{" "}
           <Link href="/misc-charges" className="text-brand hover:text-brand-dark">misc charges</Link>.

@@ -100,6 +100,12 @@ export async function getSummary() {
   const otherCurrencies = [...new Set(orders.filter((o) => o.currency && o.currency !== "USD").map((o) => o.currency))];
   const payoutSince = (db.prepare("SELECT MIN(posted_date) d FROM fee_events WHERE kind = 'sale'").get() as { d: string | null }).d;
   const ordersSince = (db.prepare("SELECT MIN(purchase_date) d FROM orders").get() as { d: string | null }).d?.slice(0, 10) ?? null;
+  // How current the numbers are.
+  const freshness = {
+    newestOrder: (db.prepare("SELECT MAX(purchase_date) d FROM orders").get() as { d: string | null }).d,
+    ordersSynced: (db.prepare("SELECT MAX(updated_at) t FROM report_requests WHERE kind = 'orders' AND status = 'done'").get() as { t: string | null }).t,
+    latestPayout: (db.prepare("SELECT MAX(posted_date) d FROM fee_events WHERE kind = 'sale'").get() as { d: string | null }).d,
+  };
 
   // ---- Per product ----
   const asins = [...new Set([...ships.stock.map((s) => s.asin), ...perAsin.keys()])];
@@ -165,7 +171,7 @@ export async function getSummary() {
       toCoverOperating: unitsNeeded(operating, p.profitPerUnit),
       toRecoverInvestment: unitsNeeded(netCashWithTransit, p.payoutPerUnit),
     })),
-    coverage: { ordersSince, payoutSince, otherCurrencies },
+    coverage: { ordersSince, payoutSince, otherCurrencies, ...freshness },
   };
 }
 

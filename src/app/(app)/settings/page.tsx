@@ -301,6 +301,7 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="py-2 font-medium">Report</th>
+                  <th className="py-2 font-medium">For</th>
                   <th className="py-2 font-medium">Period</th>
                   <th className="py-2 font-medium">Status</th>
                   <th className="py-2 font-medium">Notes</th>
@@ -310,6 +311,7 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
                 {queue.map((q) => (
                   <tr key={`${q.kind}-${q.scope}-${q.period_start}-${q.period_end}`} className="align-top">
                     <td className="py-2 pr-4">{REPORT_NAMES[q.kind] ?? q.kind}</td>
+                    <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">{reportScope(q.kind, q.scope)}</td>
                     <td className="whitespace-nowrap py-2 pr-4 tabular-nums text-muted-foreground">
                       {q.period_start === q.period_end ? q.period_start : `${q.period_start} → ${q.period_end}`}
                     </td>
@@ -345,6 +347,16 @@ const SECURITY_LABELS: Record<string, string> = {
   data_exported: "Backup downloaded",
   data_restored: "Data restored",
 };
+
+/** "US", "🇺🇸 US", a product's ASIN for SQP, or the marketplace for Ads ("US:<profile>"). */
+function reportScope(kind: string, scope: string) {
+  if (kind === "sqp") {
+    const p = db.prepare("SELECT asin FROM products WHERE id = ?").get(Number(scope)) as { asin: string } | undefined;
+    return p?.asin ?? `product ${scope}`;
+  }
+  const code = scope.split(":")[0];
+  return isMarketplace(code) ? `${allMarketplaces[code].flag} ${code}` : scope;
+}
 
 const REPORT_NAMES: Record<string, string> = {
   sqp: "Search Query Performance",
