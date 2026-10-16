@@ -294,8 +294,10 @@ const server = http.createServer((req, res) => {
             },
       });
     }
-    if (p === "/finances/v0/financialEvents" && (url.searchParams.get("PostedBefore") ?? "9") < "2026-10-01") {
-      return json(res, 200, { payload: { FinancialEvents: {} } }); // nothing posted that early
+    // These sample charges were "posted" recently: older windows (the one-time history backfill) are empty,
+    // like Amazon, which returns each charge only for the window it was posted in.
+    if (p === "/finances/v0/financialEvents" && Date.parse(url.searchParams.get("PostedAfter") ?? "") < Date.now() - 20 * 86_400_000) {
+      return json(res, 200, { payload: { FinancialEvents: {} } });
     }
     if (p === "/finances/v0/financialEvents") {
       const page = url.searchParams.get("NextToken") === "page2" ? 1 : 0;
