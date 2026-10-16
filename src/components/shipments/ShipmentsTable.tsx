@@ -13,13 +13,11 @@ import type { ProductOption, Shipment } from "@/lib/shipments";
 import { cn } from "@/lib/utils";
 import { ShipmentForm } from "./ShipmentForm";
 import { ShipmentView } from "./ShipmentView";
+import { todayInAppZone } from "@/lib/timezone";
 
 const money = (n: number) => formatValue("money", n, "USD");
 const date = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const today = () => todayInAppZone();
 
 export function ShipmentsTable({ shipments, nextRef, products, startAdding = false, startViewing }: {
   shipments: Shipment[];

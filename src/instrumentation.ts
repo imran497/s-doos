@@ -3,7 +3,13 @@
 // hour has passed and today's run hasn't happened.
 // The app has to be running for checks to happen; see README for keeping it running.
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.DISABLE_SCHEDULER === "true") return;
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // The whole server works in US Central Time unless TZ says otherwise (Render runs in UTC).
+  if (!process.env.TZ) {
+    const { APP_TIME_ZONE } = await import("./lib/timezone");
+    process.env.TZ = APP_TIME_ZONE;
+  }
+  if (process.env.DISABLE_SCHEDULER === "true") return;
 
   const globalForScheduler = globalThis as unknown as { sellerdoosScheduler?: NodeJS.Timeout };
   if (globalForScheduler.sellerdoosScheduler) return;

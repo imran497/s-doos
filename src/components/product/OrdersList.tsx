@@ -6,11 +6,12 @@ import { formatValue } from "@/components/dashboard/format";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProductOrder } from "@/lib/product-orders";
+import { APP_TIME_ZONE } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: APP_TIME_ZONE, timeZoneName: "short" });
 
 /** Every sale of the product, newest first, 5 per page. */
 export function OrdersList({ orders }: { orders: ProductOrder[] }) {

@@ -11,16 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { defaultTotalPaid, landedUnitCost, SHIPMENT_STATUSES, type ShipmentStatus } from "@/lib/cogs-math";
 import type { ProductOption, Shipment } from "@/lib/shipments";
+import { todayInAppZone } from "@/lib/timezone";
 
 type LineDraft = { key: number; asin: string; qty: string; unitPrice: string; miscCharges: string; totalPaid: string; notes: string };
 
 let nextKey = 1;
 const blankLine = (): LineDraft => ({ key: nextKey++, asin: "", qty: "", unitPrice: "", miscCharges: "", totalPaid: "", notes: "" });
 const num = (v: string) => Number(v.replace(/[$,]/g, "")) || 0;
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const today = () => todayInAppZone();
 
 /** Side panel to add or edit a shipment and its products, with a live landed-cost preview. */
 export function ShipmentForm({ open, onOpenChange, shipment, nextRef, products }: {

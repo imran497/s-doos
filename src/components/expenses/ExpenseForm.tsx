@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { CategoryInfo } from "@/lib/expenses-meta";
+import { todayInAppZone } from "@/lib/timezone";
 
 export type EditableExpense = { id: number; date: string; category: string; description: string; amount: number; notes: string };
 
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const today = () => todayInAppZone();
 
 /** Side panel to add or edit a charge you entered yourself. */
 export function ExpenseForm({ open, onOpenChange, expense, categories, defaultCategory }: {

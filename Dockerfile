@@ -17,7 +17,8 @@ RUN npm run build
 
 FROM node:22-bookworm-slim AS run
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATABASE_PATH=/data/sellerdoos.db
+# US Central Time for "today", date ranges and schedules (see src/lib/timezone.ts).
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 DATABASE_PATH=/data/sellerdoos.db TZ=America/Chicago
 RUN groupadd --system --gid 1001 sellerdoos && useradd --system --uid 1001 --gid sellerdoos --home /app sellerdoos \
   && mkdir -p /data && chown sellerdoos:sellerdoos /data
 COPY --from=build --chown=sellerdoos /app/.next/standalone ./
