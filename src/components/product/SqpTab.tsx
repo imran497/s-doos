@@ -81,14 +81,6 @@ export function SqpTab({ productId, data, currency }: { productId: number; data:
     },
   ];
 
-  const funnel = [
-    { stage: "Impressions", yours: t.asinImpressions, all: t.impressions },
-    { stage: "Clicks", yours: t.asinClicks, all: t.clicks },
-    { stage: "Cart adds", yours: t.asinCartAdds, all: t.cartAdds },
-    { stage: "Purchases", yours: t.asinPurchases, all: t.purchases },
-  ];
-  const maxShare = Math.max(0.0001, ...funnel.map((f) => share(f.yours, f.all) ?? 0));
-
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -116,32 +108,6 @@ export function SqpTab({ productId, data, currency }: { productId: number; data:
           </div>
         ))}
       </div>
-
-      <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-[13px] font-semibold">Your share of each step</h3>
-          <span className="text-xs text-muted-foreground">Across these {t.queries} search queries: you vs. all products shoppers saw</span>
-        </div>
-        <div className="mt-3 space-y-2.5">
-          {funnel.map((f) => {
-            const s = share(f.yours, f.all);
-            return (
-              <div key={f.stage} className="grid grid-cols-[90px_1fr_auto] items-center gap-3 text-[13px] sm:grid-cols-[110px_1fr_220px]">
-                <span className="text-muted-foreground">{f.stage}</span>
-                <span className="h-2 overflow-hidden rounded-full bg-canvas">
-                  <span className="block h-full rounded-full bg-brand" style={{ width: `${((s ?? 0) / maxShare) * 100}%` }} />
-                </span>
-                <span className="text-right tabular-nums">
-                  <b className="font-semibold">{pct(s)}</b>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {int(f.yours)} of {int(f.all)}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
       <section className="overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
