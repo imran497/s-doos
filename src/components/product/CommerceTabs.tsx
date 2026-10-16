@@ -59,16 +59,16 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
   const before = orderTotals(orders, sales.range.prevFrom, sales.range.prevTo);
   const change = (a: number, b: number) => (b ? (a - b) / b : null);
   const days = sales.dates.length;
-  const netProfit = now.profit - (p.adSpend ?? 0);
+  const netProfit = now.profit;
   const lines: { label: string; value: number | null; hint?: string; strong?: boolean }[] = [
     { label: "Sales", value: p.sales },
     { label: "Promotions", value: p.promotions },
     { label: "Amazon fees", value: p.amazonFees, hint: "Referral, FBA fulfilment and storage fees" },
     { label: "Refunds", value: p.refunds },
     { label: "Adjustments", value: p.adjustments, hint: "Reimbursements and other corrections" },
-    { label: "Ad spend", value: p.adSpend ? -p.adSpend : 0 },
     { label: `Cost of goods (${p.units} units)`, value: p.cogs == null ? null : -p.cogs },
-    { label: "Net, as posted so far", value: p.profit, strong: true, hint: "Money Amazon has posted for these days; recent orders are added once Amazon settles them" },
+    // Ads live on the Ads tab: this tab's profit is before ad spend.
+    { label: "Net, as posted so far", value: p.profit + p.adSpend, strong: true, hint: "Money Amazon has posted for these days, minus cost of goods (ads not included); recent orders are added once Amazon settles them" },
   ];
 
   return (
@@ -93,9 +93,9 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
           hint={`Units ordered ÷ sessions, on the ${sales.totals.days} days Amazon's Sales & Traffic report covers`}
         />
         <StatTile
-          label="Net profit"
+          label="Profit"
           value={formatMoney(netProfit, c)}
-          hint="From the orders below: Amazon payout − cost of goods − ad spend for these days"
+          hint="From the orders below: Amazon payout − cost of goods (before ad spend; see the Ads tab)"
         />
       </div>
       {sales.totals.days < days && (
@@ -120,7 +120,7 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
               </div>
             ))}
           </dl>
-          {p.margin != null && <p className="mt-2 text-right text-xs font-semibold text-muted-foreground">Margin {percent(p.margin)}</p>}
+          {p.sales > 0 && <p className="mt-2 text-right text-xs font-semibold text-muted-foreground">Margin {percent((p.profit + p.adSpend) / p.sales)} (before ads)</p>}
         </section>
 
         <div className="space-y-5">
