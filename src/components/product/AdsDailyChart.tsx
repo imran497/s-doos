@@ -15,6 +15,9 @@ export type AdsDay = {
   profit: number;
   /** profit − ad spend; null while the ad data is only sample data. */
   profitAfterAds: number | null;
+  /** All orders of the product that day (organic and ads). */
+  totalSales: number;
+  totalUnits: number;
 };
 
 const config = {
@@ -44,6 +47,8 @@ export function AdsDailyChart({ days, currency, sample = false }: { days: AdsDay
             const d = payload[0].payload as AdsDay & { label: string };
             const reported = d.cost != null || d.sales != null;
             const profitRows: [string, string][] = [
+              ["Sales", money(d.totalSales)],
+              ["Units", d.totalUnits.toLocaleString()],
               ["Profit on sales", money(d.profit)],
               ["Profit after ads", d.profitAfterAds == null ? "needs real ad data" : money(d.profitAfterAds)],
             ];
@@ -64,10 +69,16 @@ export function AdsDailyChart({ days, currency, sample = false }: { days: AdsDay
                 {profitRows.map(([k, v], i) => (
                   <div key={k} className="flex items-center justify-between gap-4 py-0.5">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      {i === 1 && d.profitAfterAds != null && <span className="inline-block size-2 rounded-sm" style={{ background: d.profitAfterAds < 0 ? "var(--destructive)" : "var(--chart-5)" }} />}
+                      {i === 3 && d.profitAfterAds != null && <span className="inline-block size-2 rounded-sm" style={{ background: d.profitAfterAds < 0 ? "var(--destructive)" : "var(--chart-5)" }} />}
                       {k}
                     </span>
-                    <span className={`font-medium tabular-nums ${((i === 0 ? d.profit : d.profitAfterAds) ?? 0) < 0 ? "text-destructive" : i === 1 && d.profitAfterAds == null ? "text-muted-foreground" : "text-foreground"}`}>{v}</span>
+                    <span
+                      className={`font-medium tabular-nums ${
+                        ((i === 2 ? d.profit : i === 3 ? d.profitAfterAds : 0) ?? 0) < 0 ? "text-destructive" : i === 3 && d.profitAfterAds == null ? "text-muted-foreground" : "text-foreground"
+                      }`}
+                    >
+                      {v}
+                    </span>
                   </div>
                 ))}
                 <div className="my-1 border-t" />

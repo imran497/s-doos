@@ -193,20 +193,25 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
   const converting = ads.terms.filter((x) => x.purchases > 0 && !x.tracked).slice(0, 5);
   // Profit per day from the orders (payout − cost of goods), and after that day's ad spend.
   const profitByDay = new Map<string, number>();
+  const salesByDay = new Map<string, { amount: number; units: number }>();
   for (const o of orders) {
-    if (o.status === "Cancelled" || o.profit == null) continue;
+    if (o.status === "Cancelled") continue;
     const day = orderDay(o.date);
-    profitByDay.set(day, (profitByDay.get(day) ?? 0) + o.profit);
+    const sold = salesByDay.get(day) ?? { amount: 0, units: 0 };
+    salesByDay.set(day, { amount: sold.amount + o.price - o.promotion, units: sold.units + o.units });
+    if (o.profit != null) profitByDay.set(day, (profitByDay.get(day) ?? 0) + o.profit);
   }
   // Sample ads are shown (labelled) but never subtracted from real profit.
   const sample = ads.demo;
   const days = ads.series.map((d) => {
     const profit = profitByDay.get(d.date) ?? 0;
-    return { ...d, profit, profitAfterAds: sample ? null : profit - (d.cost ?? 0) };
+    const sold = salesByDay.get(d.date);
+    return { ...d, profit, profitAfterAds: sample ? null : profit - (d.cost ?? 0), totalSales: sold?.amount ?? 0, totalUnits: sold?.units ?? 0 };
   });
+  const totalSales = days.reduce((n, d) => n + d.totalSales, 0);
+  const totalUnits = days.reduce((n, d) => n + d.totalUnits, 0);
   const profitOnSales = days.reduce((n, d) => n + d.profit, 0);
   const profitAfterAds = sample ? null : profitOnSales - t.cost;
-  const tag = sample ? " (sample)" : "";
   return (
     <div className="space-y-5">
       {sample && (
@@ -219,17 +224,20 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
           </Link>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        <StatTile label={`Ad sales${tag}`} value={formatMoney(t.sales, currency)} hint="Sales attributed to your Sponsored Products ads (7 days after a click)" />
-        <StatTile label={`Ad sale units${tag}`} value={t.units.toLocaleString()} hint={`${t.purchases.toLocaleString()} orders from ads`} />
-        <StatTile label={`Ad spend${tag}`} value={formatMoney(t.cost, currency)} hint={`ACoS ${percent(ads.acos)} (ad spend ÷ ad sales) · TACoS ${percent(ads.tacos)}`} />
-        <StatTile label="Profit on sales" value={formatMoney(profitOnSales, currency)} hint="All orders of this product in these days: Amazon payout − cost of goods" />
-        <StatTile
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+        <Metric label="Sales" value={formatMoney(totalSales, currency)} hint="All orders of this product (organic and ads), after promotions" />
+        <Metric label="Units" value={totalUnits.toLocaleString()} hint="All units ordered of this product, cancelled orders left out" />
+        <Metric label="Ad sales" sample={sample} value={formatMoney(t.sales, currency)} hint="Sales attributed to your Sponsored Products ads (7 days after a click)" />
+        <Metric label="Ad sale units" sample={sample} value={t.units.toLocaleString()} hint={`${t.purchases.toLocaleString()} orders from ads`} />
+        <Metric label="Ad spend" sample={sample} value={formatMoney(t.cost, currency)} hint={`ACoS ${percent(ads.acos)} (ad spend ÷ ad sales) · TACoS ${percent(ads.tacos)}`} />
+        <Metric label="Profit on sales" value={formatMoney(profitOnSales, currency)} hint="All orders of this product in these days: Amazon payout − cost of goods" tone={profitOnSales < 0 ? "bad" : undefined} />
+        <Metric
           label="Profit after ads"
           value={profitAfterAds == null ? "—" : formatMoney(profitAfterAds, currency)}
           hint={profitAfterAds == null ? "Needs your real ad spend: upload your Amazon Ads reports" : "Profit on sales − ad spend"}
+          tone={profitAfterAds != null && profitAfterAds < 0 ? "bad" : undefined}
         />
-        <StatTile label={`Clicks${tag}`} value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
+        <Metric label="Clicks" sample={sample} value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
       </div>
 
       <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
@@ -263,7 +271,7 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold">{x.search_term}</span>
                   <span className="text-xs text-muted-foreground">
-                    {x.purchases} orders · {percent(x.acos, 0)} ACoS
+                    {x.purchases} order{x.purchases === 1 ? "" : "s"} · {percent(x.acos, 0)} ACoS
                   </span>
                 </span>
                 <TrackButton productId={productId} keyword={x.search_term} />
@@ -408,6 +416,17 @@ export function CompetitorsTab({ productId, data, demo }: { productId: number; d
         {!data.rivals.length && <p className="p-6 text-center text-sm text-muted-foreground">Add competitor ASINs above to compare BSR and prices.</p>}
       </section>
       {demo && <p className="text-xs text-muted-foreground">Sample data. Connect SP-API in Settings to see live BSR and prices.</p>}
+    </div>
+  );
+}
+
+/** A compact stat card (eight fit in one row). */
+function Metric({ label, value, hint, sample, tone }: { label: string; value: string; hint?: string; sample?: boolean; tone?: "bad" }) {
+  return (
+    <div className="rounded-lg border bg-card px-3.5 py-3 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]" title={hint}>
+      <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+      <p className={`mt-1 truncate text-lg font-semibold tracking-tight tabular-nums ${tone === "bad" ? "text-destructive" : ""}`}>{value}</p>
+      {sample && <p className="mt-0.5 text-[10px] font-medium text-[#8a5a12]">Sample data</p>}
     </div>
   );
 }
