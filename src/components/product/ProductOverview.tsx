@@ -229,8 +229,8 @@ export async function ProductOverview({ productId, asin, marketplace, period }: 
             <KpiCard
               label="TACoS"
               kind="percent"
-              current={s.current.amount ? a.current.spend / s.current.amount : null}
-              previous={a.previous && s.previous?.amount ? a.previous.spend / s.previous.amount : null}
+              current={!a.demo && s.current.amount ? a.current.spend / s.current.amount : null}
+              previous={!a.demo && a.previous && s.previous?.amount ? a.previous.spend / s.previous.amount : null}
               points={[]}
               currency={d.currency}
               better="down"

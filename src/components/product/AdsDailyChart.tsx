@@ -13,8 +13,8 @@ export type AdsDay = {
   purchases: number | null;
   /** All orders that day: Amazon payout − cost of goods. */
   profit: number;
-  /** profit − ad spend. */
-  profitAfterAds: number;
+  /** profit − ad spend; null while the ad data is only sample data. */
+  profitAfterAds: number | null;
 };
 
 const config = {
@@ -26,7 +26,7 @@ const config = {
 const label = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 /** Daily ad spend and profit after ads (bars), ad sales (line); hover a day for the full breakdown. */
-export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: string }) {
+export function AdsDailyChart({ days, currency, sample = false }: { days: AdsDay[]; currency: string; sample?: boolean }) {
   const money = (n: number | null) => (n == null ? "—" : formatValue("money", n, currency));
   const data = days.map((d) => ({ ...d, label: label(d.date) }));
   return (
@@ -45,7 +45,7 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
             const reported = d.cost != null || d.sales != null;
             const profitRows: [string, string][] = [
               ["Profit on sales", money(d.profit)],
-              ["Profit after ads", money(d.profitAfterAds)],
+              ["Profit after ads", d.profitAfterAds == null ? "needs real ad data" : money(d.profitAfterAds)],
             ];
             const rows: [string, string][] = reported
               ? [
@@ -64,13 +64,14 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
                 {profitRows.map(([k, v], i) => (
                   <div key={k} className="flex items-center justify-between gap-4 py-0.5">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      {i === 1 && <span className="inline-block size-2 rounded-sm" style={{ background: d.profitAfterAds < 0 ? "var(--destructive)" : "var(--chart-5)" }} />}
+                      {i === 1 && d.profitAfterAds != null && <span className="inline-block size-2 rounded-sm" style={{ background: d.profitAfterAds < 0 ? "var(--destructive)" : "var(--chart-5)" }} />}
                       {k}
                     </span>
-                    <span className={`font-medium tabular-nums ${(i === 0 ? d.profit : d.profitAfterAds) < 0 ? "text-destructive" : "text-foreground"}`}>{v}</span>
+                    <span className={`font-medium tabular-nums ${((i === 0 ? d.profit : d.profitAfterAds) ?? 0) < 0 ? "text-destructive" : i === 1 && d.profitAfterAds == null ? "text-muted-foreground" : "text-foreground"}`}>{v}</span>
                   </div>
                 ))}
                 <div className="my-1 border-t" />
+                {sample && <p className="pb-0.5 text-[11px] font-medium text-[#8a5a12]">Sample ad data (not real)</p>}
                 {reported ? (
                   rows.map(([k, v], i) => (
                     <div key={k} className="flex items-center justify-between gap-4 py-0.5">
@@ -92,7 +93,7 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
         {/* Profit after ads next to spend: green above zero, red below. */}
         <Bar dataKey="profitAfterAds" radius={[2, 2, 0, 0]} isAnimationActive={false}>
           {data.map((d) => (
-            <Cell key={d.date} fill={d.profitAfterAds < 0 ? "var(--destructive)" : "var(--color-profitAfterAds)"} />
+            <Cell key={d.date} fill={(d.profitAfterAds ?? 0) < 0 ? "var(--destructive)" : "var(--color-profitAfterAds)"} />
           ))}
         </Bar>
         <Line dataKey="sales" type="linear" stroke="var(--color-sales)" strokeWidth={2} dot={false} activeDot={{ r: 3.5, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false} />

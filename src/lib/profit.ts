@@ -97,7 +97,8 @@ export function productProfit(productId: number, from: string, to: string): Prof
     )
     .all(p.asin, p.marketplace, from, to) as { kind: string; total: number; units: number }[];
   const ads = db
-    .prepare("SELECT COALESCE(SUM(cost), 0) s FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
+    // Real ad spend only: sample (demo) ads must never change a profit number.
+    .prepare("SELECT COALESCE(SUM(cost), 0) s FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ? AND source != 'demo'")
     .get(p.asin, p.marketplace, from, to) as { s: number };
   const currency = (db.prepare("SELECT currency FROM fee_events WHERE asin = ? AND currency != '' LIMIT 1").get(p.asin) as { currency: string } | undefined)?.currency ?? "";
   const source = costSource(p.asin, p.unit_cost);
@@ -115,7 +116,7 @@ export function dailyProfit(productId: number, dates: string[]) {
     )
     .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { d: string; kind: string; total: number; units: number }[];
   const ads = db
-    .prepare("SELECT date d, SUM(cost) cost FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ? GROUP BY date")
+    .prepare("SELECT date d, SUM(cost) cost FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ? AND source != 'demo' GROUP BY date")
     .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { d: string; cost: number }[];
   const source = costSource(p.asin, p.unit_cost);
   return dates.map((date) => ({

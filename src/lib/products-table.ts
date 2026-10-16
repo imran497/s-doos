@@ -137,12 +137,13 @@ export async function getProductTable(period: Period, marketplace: MarketplaceCo
       db
         .prepare(
           `SELECT asin, SUM(cost) cost, SUM(sales) sales, SUM(clicks) clicks, SUM(impressions) impressions
-           FROM ads_products WHERE marketplace = ? AND date BETWEEN ? AND ? GROUP BY asin`,
+           FROM ads_products WHERE marketplace = ? AND date BETWEEN ? AND ? AND source != 'demo' GROUP BY asin`,
         )
         .all(marketplace, days.from, days.to) as { asin: string; cost: number; sales: number; clicks: number; impressions: number }[]
     ).map((r) => [r.asin, r]),
   );
-  const hasAds = Boolean(db.prepare("SELECT 1 FROM ads_products WHERE marketplace = ? LIMIT 1").get(marketplace));
+  // Only real ad data: the table's profit subtracts ad spend, and sample numbers would make it up.
+  const hasAds = Boolean(db.prepare("SELECT 1 FROM ads_products WHERE marketplace = ? AND source != 'demo' LIMIT 1").get(marketplace));
 
   const latestSnapshot = db.prepare(
     "SELECT bsr, bsr_category, buy_box_price, you_have_buy_box FROM listing_snapshots WHERE marketplace = ? AND asin = ? ORDER BY date DESC LIMIT 1",

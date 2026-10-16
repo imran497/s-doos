@@ -198,26 +198,43 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
     const day = orderDay(o.date);
     profitByDay.set(day, (profitByDay.get(day) ?? 0) + o.profit);
   }
+  // Sample ads are shown (labelled) but never subtracted from real profit.
+  const sample = ads.demo;
   const days = ads.series.map((d) => {
     const profit = profitByDay.get(d.date) ?? 0;
-    return { ...d, profit, profitAfterAds: profit - (d.cost ?? 0) };
+    return { ...d, profit, profitAfterAds: sample ? null : profit - (d.cost ?? 0) };
   });
   const profitOnSales = days.reduce((n, d) => n + d.profit, 0);
-  const profitAfterAds = profitOnSales - t.cost;
+  const profitAfterAds = sample ? null : profitOnSales - t.cost;
+  const tag = sample ? " (sample)" : "";
   return (
     <div className="space-y-5">
+      {sample && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f2d49b] bg-[#fdf6e7] px-4 py-3 text-[13px] text-[#7a4f0e]">
+          <span>
+            <b>Sample ad data.</b> Ad sales, spend, clicks and orders below are made-up examples, so profit after ads isn&apos;t calculated. Profit on sales is real.
+          </span>
+          <Link href="/settings#ads-upload" className="font-semibold text-brand hover:text-brand-dark">
+            Upload your Amazon Ads reports
+          </Link>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        <StatTile label="Ad sales" value={formatMoney(t.sales, currency)} hint="Sales attributed to your Sponsored Products ads (7 days after a click)" />
-        <StatTile label="Ad sale units" value={t.units.toLocaleString()} hint={`${t.purchases.toLocaleString()} orders from ads`} />
-        <StatTile label="Ad spend" value={formatMoney(t.cost, currency)} hint={`ACoS ${percent(ads.acos)} (ad spend ÷ ad sales) · TACoS ${percent(ads.tacos)}`} />
+        <StatTile label={`Ad sales${tag}`} value={formatMoney(t.sales, currency)} hint="Sales attributed to your Sponsored Products ads (7 days after a click)" />
+        <StatTile label={`Ad sale units${tag}`} value={t.units.toLocaleString()} hint={`${t.purchases.toLocaleString()} orders from ads`} />
+        <StatTile label={`Ad spend${tag}`} value={formatMoney(t.cost, currency)} hint={`ACoS ${percent(ads.acos)} (ad spend ÷ ad sales) · TACoS ${percent(ads.tacos)}`} />
         <StatTile label="Profit on sales" value={formatMoney(profitOnSales, currency)} hint="All orders of this product in these days: Amazon payout − cost of goods" />
-        <StatTile label="Profit after ads" value={formatMoney(profitAfterAds, currency)} hint="Profit on sales − ad spend" />
-        <StatTile label="Clicks" value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
+        <StatTile
+          label="Profit after ads"
+          value={profitAfterAds == null ? "—" : formatMoney(profitAfterAds, currency)}
+          hint={profitAfterAds == null ? "Needs your real ad spend: upload your Amazon Ads reports" : "Profit on sales − ad spend"}
+        />
+        <StatTile label={`Clicks${tag}`} value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
       </div>
 
       <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[13px] font-semibold">Ads and profit per day</h3>
+          <h3 className="text-[13px] font-semibold">Ads and profit per day{sample ? " · sample ad data" : ""}</h3>
           <span className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[var(--chart-1)]" /> Ad sales
@@ -233,7 +250,7 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
           </span>
         </div>
         <div className="mt-3">
-          <AdsDailyChart days={days} currency={currency} />
+          <AdsDailyChart days={days} currency={currency} sample={sample} />
         </div>
       </section>
 

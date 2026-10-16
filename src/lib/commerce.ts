@@ -91,8 +91,8 @@ export async function getAdsDetail(productId: number, days: number) {
   if (!p) return null;
   const dates = rangeDates(days);
   const daily = db
-    .prepare("SELECT date, cost, sales, clicks, impressions, purchases, units FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
-    .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { date: string; cost: number; sales: number; clicks: number; impressions: number; purchases: number; units: number }[];
+    .prepare("SELECT date, cost, sales, clicks, impressions, purchases, units, source FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
+    .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { date: string; cost: number; sales: number; clicks: number; impressions: number; purchases: number; units: number; source: string }[];
   const byDate = new Map(daily.map((r) => [r.date, r]));
   const sum = (k: "cost" | "sales" | "clicks" | "impressions" | "purchases" | "units") => daily.reduce((s, r) => s + r[k], 0);
   const revenue = (db.prepare("SELECT COALESCE(SUM(revenue), 0) v FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?").get(p.asin, p.marketplace, dates[0], dates.at(-1)) as { v: number }).v;
@@ -129,6 +129,8 @@ export async function getAdsDetail(productId: number, days: number) {
   return {
     currency: marketplaces[p.marketplace].currency,
     hasData: daily.length > 0 || terms.length > 0,
+    /** Sample ad numbers (no real ad data yet): shown labelled, never used in profit. */
+    demo: daily.length > 0 && daily.every((r) => r.source === "demo"),
     /** "product": search terms from campaigns advertising this ASIN; "marketplace": all (no campaign links yet). */
     termsScope: (mapped ? "product" : "marketplace") as "product" | "marketplace",
     dates,
