@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { formatValue } from "@/components/dashboard/format";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
@@ -25,7 +25,7 @@ const config = {
 
 const label = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-/** Daily ad spend (bars) and ad sales (line); hover a day for the full breakdown. */
+/** Daily ad spend and profit after ads (bars), ad sales (line); hover a day for the full breakdown. */
 export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: string }) {
   const money = (n: number | null) => (n == null ? "—" : formatValue("money", n, currency));
   const data = days.map((d) => ({ ...d, label: label(d.date) }));
@@ -33,6 +33,7 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
     <ChartContainer config={config} className="aspect-auto h-[260px] w-full">
       <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} stroke="var(--border)" />
+        <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.4} />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} fontSize={11} />
         <YAxis tickLine={false} axisLine={false} width={52} fontSize={11} tickFormatter={(v: number) => formatValue("money", v, currency, true)} />
         <Tooltip
@@ -62,7 +63,7 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
                 {profitRows.map(([k, v], i) => (
                   <div key={k} className="flex items-center justify-between gap-4 py-0.5">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      {i === 1 && <span className="inline-block size-2 rounded-sm" style={{ background: "var(--chart-5)" }} />}
+                      {i === 1 && <span className="inline-block size-2 rounded-sm" style={{ background: d.profitAfterAds < 0 ? "var(--destructive)" : "var(--chart-5)" }} />}
                       {k}
                     </span>
                     <span className={`font-medium tabular-nums ${(i === 0 ? d.profit : d.profitAfterAds) < 0 ? "text-destructive" : "text-foreground"}`}>{v}</span>
@@ -86,8 +87,13 @@ export function AdsDailyChart({ days, currency }: { days: AdsDay[]; currency: st
             );
           }}
         />
-        <Bar dataKey="cost" fill="var(--color-cost)" radius={[2, 2, 0, 0]} maxBarSize={18} isAnimationActive={false} />
-        <Line dataKey="profitAfterAds" type="linear" stroke="var(--color-profitAfterAds)" strokeWidth={2} dot={false} activeDot={{ r: 3.5, strokeWidth: 0 }} isAnimationActive={false} />
+        <Bar dataKey="cost" fill="var(--color-cost)" radius={[2, 2, 0, 0]} maxBarSize={14} isAnimationActive={false} />
+        {/* Profit after ads next to spend: green above zero, red below. */}
+        <Bar dataKey="profitAfterAds" radius={[2, 2, 0, 0]} maxBarSize={14} isAnimationActive={false}>
+          {data.map((d) => (
+            <Cell key={d.date} fill={d.profitAfterAds < 0 ? "var(--destructive)" : "var(--color-profitAfterAds)"} />
+          ))}
+        </Bar>
         <Line dataKey="sales" type="linear" stroke="var(--color-sales)" strokeWidth={2} dot={false} activeDot={{ r: 3.5, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false} />
       </ComposedChart>
     </ChartContainer>

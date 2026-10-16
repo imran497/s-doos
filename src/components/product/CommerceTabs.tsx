@@ -227,7 +227,8 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
               <span className="size-2 rounded-sm bg-[var(--chart-2)]" /> Ad spend
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-sm bg-[var(--chart-5)]" /> Profit after ads
+              <span className="size-2 rounded-sm bg-[var(--chart-5)]" />
+              <span className="-ml-1 size-2 rounded-sm bg-destructive" /> Profit after ads
             </span>
             <span>Hover a day for details</span>
           </span>
