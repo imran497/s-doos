@@ -206,13 +206,12 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
   const profitAfterAds = profitOnSales - t.cost;
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        <StatTile label="Ad sales" value={formatMoney(t.sales, currency)} hint="Sales attributed to your Sponsored Products ads (7 days after a click)" />
+        <StatTile label="Ad sale units" value={t.units.toLocaleString()} hint={`${t.purchases.toLocaleString()} orders from ads`} />
+        <StatTile label="Ad spend" value={formatMoney(t.cost, currency)} hint={`ACoS ${percent(ads.acos)} (ad spend ÷ ad sales) · TACoS ${percent(ads.tacos)}`} />
         <StatTile label="Profit on sales" value={formatMoney(profitOnSales, currency)} hint="All orders of this product in these days: Amazon payout − cost of goods" />
         <StatTile label="Profit after ads" value={formatMoney(profitAfterAds, currency)} hint="Profit on sales − ad spend" />
-        <StatTile label="Ad spend" value={formatMoney(t.cost, currency)} />
-        <StatTile label="Ad sales" value={formatMoney(t.sales, currency)} />
-        <StatTile label="ACoS" value={percent(ads.acos)} hint="Ad spend ÷ ad sales" />
-        <StatTile label="TACoS" value={percent(ads.tacos)} hint="Ad spend ÷ all sales (organic + ads)" />
         <StatTile label="Clicks" value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
       </div>
 

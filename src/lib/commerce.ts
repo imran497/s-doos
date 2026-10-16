@@ -91,10 +91,10 @@ export async function getAdsDetail(productId: number, days: number) {
   if (!p) return null;
   const dates = rangeDates(days);
   const daily = db
-    .prepare("SELECT date, cost, sales, clicks, impressions, purchases FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
-    .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { date: string; cost: number; sales: number; clicks: number; impressions: number; purchases: number }[];
+    .prepare("SELECT date, cost, sales, clicks, impressions, purchases, units FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
+    .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { date: string; cost: number; sales: number; clicks: number; impressions: number; purchases: number; units: number }[];
   const byDate = new Map(daily.map((r) => [r.date, r]));
-  const sum = (k: "cost" | "sales" | "clicks" | "impressions" | "purchases") => daily.reduce((s, r) => s + r[k], 0);
+  const sum = (k: "cost" | "sales" | "clicks" | "impressions" | "purchases" | "units") => daily.reduce((s, r) => s + r[k], 0);
   const revenue = (db.prepare("SELECT COALESCE(SUM(revenue), 0) v FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?").get(p.asin, p.marketplace, dates[0], dates.at(-1)) as { v: number }).v;
 
   // Search terms aren't reported per ASIN, so this covers the marketplace's Sponsored Products.
@@ -116,7 +116,7 @@ export async function getAdsDetail(productId: number, days: number) {
       const r = byDate.get(d);
       return { date: d, cost: r?.cost ?? null, sales: r?.sales ?? null, clicks: r?.clicks ?? null, impressions: r?.impressions ?? null, purchases: r?.purchases ?? null };
     }),
-    totals: { cost: sum("cost"), sales: sum("sales"), clicks: sum("clicks"), impressions: sum("impressions"), purchases: sum("purchases"), revenue },
+    totals: { cost: sum("cost"), sales: sum("sales"), clicks: sum("clicks"), impressions: sum("impressions"), purchases: sum("purchases"), units: sum("units"), revenue },
     acos: ratio(sum("cost"), sum("sales")),
     tacos: ratio(sum("cost"), revenue),
     terms,
