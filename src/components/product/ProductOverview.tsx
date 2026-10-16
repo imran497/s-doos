@@ -222,10 +222,10 @@ export async function ProductOverview({ productId, asin, marketplace, period }: 
         />
         {a.hasData ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <KpiCard label="Ad spend" kind="money" current={a.current.spend} previous={a.previous?.spend} points={a.series.map((p) => (p.reported ? p.spend : null))} currency={d.currency} better="neutral" />
-            <KpiCard label="Ad sales" kind="money" current={a.current.sales} previous={a.previous?.sales} points={a.series.map((p) => (p.reported ? p.sales : null))} currency={d.currency} />
-            <KpiCard label="ACoS" kind="percent" current={a.current.acos} previous={a.previous?.acos} points={a.series.map((p) => (p.reported ? p.acos : null))} currency={d.currency} better="down" hint="Ad spend ÷ ad sales" />
-            <KpiCard label="Clicks" kind="number" current={a.current.clicks} previous={a.previous?.clicks} points={a.series.map((p) => (p.reported ? p.clicks : null))} currency={d.currency} />
+            <KpiCard label="Ad spend" kind="money" current={a.current.spend} previous={a.previous?.spend} points={a.series.map((p) => (p.reported ? p.spend : null))} labels={a.series.map((p) => p.label)} currency={d.currency} better="neutral" />
+            <KpiCard label="Ad sales" kind="money" current={a.current.sales} previous={a.previous?.sales} points={a.series.map((p) => (p.reported ? p.sales : null))} labels={a.series.map((p) => p.label)} currency={d.currency} />
+            <KpiCard label="ACoS" kind="percent" current={a.current.acos} previous={a.previous?.acos} points={a.series.map((p) => (p.reported ? p.acos : null))} labels={a.series.map((p) => p.label)} currency={d.currency} better="down" hint="Ad spend ÷ ad sales" />
+            <KpiCard label="Clicks" kind="number" current={a.current.clicks} previous={a.previous?.clicks} points={a.series.map((p) => (p.reported ? p.clicks : null))} labels={a.series.map((p) => p.label)} currency={d.currency} />
             <KpiCard
               label="TACoS"
               kind="percent"

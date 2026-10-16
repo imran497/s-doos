@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Area, AreaChart } from "recharts";
+import { Area, AreaChart, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,17 +70,19 @@ export function MetricChartCard({ title, measures, currency, compareLabel, previ
 }
 
 /** Compact KPI: label, value, change and a small trend line. */
-export function KpiCard({ label, kind, current, previous, points, currency, better = "up", hint }: {
+export function KpiCard({ label, kind, current, previous, points, labels, currency, better = "up", hint }: {
   label: string;
   kind: ValueKind;
   current: number | null;
   previous: number | null | undefined;
   points: (number | null)[];
+  /** Label per point (e.g. "Oct 12"), shown when hovering the trend line. */
+  labels?: string[];
   currency: string;
   better?: "up" | "down" | "neutral";
   hint?: string;
 }) {
-  const series = points.map((v, i) => ({ i, v }));
+  const series = points.map((v, i) => ({ i, v, label: labels?.[i] }));
   const showLine = points.filter((v) => v != null).length > 1;
   return (
     <Card className="gap-0 border py-0 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)] ring-0" title={hint}>
@@ -98,7 +100,24 @@ export function KpiCard({ label, kind, current, previous, points, currency, bett
           {showLine && (
             <ChartContainer config={{ v: { label, color: "var(--chart-1)" } }} className="aspect-auto h-9 w-full">
               <AreaChart data={series} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
-                <Area dataKey="v" type="linear" stroke="var(--color-v)" strokeWidth={1.5} fill="var(--color-v)" fillOpacity={0.08} dot={false} isAnimationActive={false} connectNulls={false} />
+                <Tooltip
+                  cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
+                  allowEscapeViewBox={{ x: false, y: true }}
+                  // Above the line: below it the card's edge would cut the bubble off.
+                  position={{ y: -30 }}
+                  wrapperStyle={{ zIndex: 20 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0].payload as { v: number | null; label?: string };
+                    return (
+                      <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs whitespace-nowrap shadow-md">
+                        {p.label && <span className="mr-2 text-muted-foreground">{p.label}</span>}
+                        <span className="font-medium tabular-nums">{p.v == null ? "Not reported" : formatValue(kind, p.v, currency)}</span>
+                      </div>
+                    );
+                  }}
+                />
+                <Area dataKey="v" type="linear" stroke="var(--color-v)" strokeWidth={1.5} fill="var(--color-v)" fillOpacity={0.08} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={false} connectNulls={false} />
               </AreaChart>
             </ChartContainer>
           )}

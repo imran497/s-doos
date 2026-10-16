@@ -119,11 +119,11 @@ async function DashboardContent({ searchParams }: PageProps<"/">) {
         {a.hasData ? (
           <>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="Ad spend" kind="money" current={a.current.spend} previous={a.previous?.spend} points={a.series.map((p) => (p.reported ? p.spend : null))} currency={d.currency} better="neutral" />
-              <KpiCard label="Purchases" kind="number" current={a.current.purchases} previous={a.previous?.purchases} points={a.series.map((p) => (p.reported ? p.purchases : null))} currency={d.currency} />
-              <KpiCard label="Clicks" kind="number" current={a.current.clicks} previous={a.previous?.clicks} points={a.series.map((p) => (p.reported ? p.clicks : null))} currency={d.currency} />
-              <KpiCard label="CPC" kind="money" current={a.current.cpc} previous={a.previous?.cpc} points={a.series.map((p) => (p.reported ? p.cpc : null))} currency={d.currency} better="down" hint="Cost per click" />
-              <KpiCard label="Impressions" kind="number" current={a.current.impressions} previous={a.previous?.impressions} points={a.series.map((p) => (p.reported ? p.impressions : null))} currency={d.currency} />
+              <KpiCard label="Ad spend" kind="money" current={a.current.spend} previous={a.previous?.spend} points={a.series.map((p) => (p.reported ? p.spend : null))} labels={a.series.map((p) => p.label)} currency={d.currency} better="neutral" />
+              <KpiCard label="Purchases" kind="number" current={a.current.purchases} previous={a.previous?.purchases} points={a.series.map((p) => (p.reported ? p.purchases : null))} labels={a.series.map((p) => p.label)} currency={d.currency} />
+              <KpiCard label="Clicks" kind="number" current={a.current.clicks} previous={a.previous?.clicks} points={a.series.map((p) => (p.reported ? p.clicks : null))} labels={a.series.map((p) => p.label)} currency={d.currency} />
+              <KpiCard label="CPC" kind="money" current={a.current.cpc} previous={a.previous?.cpc} points={a.series.map((p) => (p.reported ? p.cpc : null))} labels={a.series.map((p) => p.label)} currency={d.currency} better="down" hint="Cost per click" />
+              <KpiCard label="Impressions" kind="number" current={a.current.impressions} previous={a.previous?.impressions} points={a.series.map((p) => (p.reported ? p.impressions : null))} labels={a.series.map((p) => p.label)} currency={d.currency} />
             </div>
             {a.series.length > 1 && (
               <MetricChartCard

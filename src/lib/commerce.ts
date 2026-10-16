@@ -112,7 +112,10 @@ export async function getAdsDetail(productId: number, days: number) {
     currency: marketplaces[p.marketplace].currency,
     hasData: daily.length > 0 || terms.length > 0,
     dates,
-    series: dates.map((d) => ({ date: d, cost: byDate.get(d)?.cost ?? null, sales: byDate.get(d)?.sales ?? null })),
+    series: dates.map((d) => {
+      const r = byDate.get(d);
+      return { date: d, cost: r?.cost ?? null, sales: r?.sales ?? null, clicks: r?.clicks ?? null, impressions: r?.impressions ?? null, purchases: r?.purchases ?? null };
+    }),
     totals: { cost: sum("cost"), sales: sum("sales"), clicks: sum("clicks"), impressions: sum("impressions"), purchases: sum("purchases"), revenue },
     acos: ratio(sum("cost"), sum("sales")),
     tacos: ratio(sum("cost"), revenue),

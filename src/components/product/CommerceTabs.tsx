@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdsDailyChart } from "@/components/product/AdsDailyChart";
 import { OrdersList } from "@/components/product/OrdersList";
 import type { ProductOrder } from "@/lib/product-orders";
 import { MultiLineChart, Sparkline } from "@/components/charts";
@@ -200,17 +201,21 @@ export function AdsTab({ productId, ads, currency, demo }: { productId: number; 
         <StatTile label="Clicks" value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
       </div>
 
-      <section className="card p-6">
-        <p className="eyebrow">Spend vs ad sales</p>
-        <div className="mt-4">
-          <MultiLineChart
-            labels={ads.dates}
-            series={[
-              { name: "Ad sales", values: ads.series.map((s) => s.sales), highlight: true },
-              { name: "Spend", values: ads.series.map((s) => s.cost) },
-            ]}
-            format={(v) => formatMoney(v, currency, true)}
-          />
+      <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[13px] font-semibold">Ad spend and ad sales per day</h3>
+          <span className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-[var(--chart-1)]" /> Ad sales
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-[var(--chart-2)]" /> Ad spend
+            </span>
+            <span>Hover a day for details</span>
+          </span>
+        </div>
+        <div className="mt-3">
+          <AdsDailyChart days={ads.series} currency={currency} />
         </div>
       </section>
 
