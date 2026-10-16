@@ -15,6 +15,8 @@ import { buildBriefing, keywordTrends } from "@/lib/insights";
 import { marketplaces } from "@/lib/marketplaces";
 import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queries";
 import { getSqpPerformance } from "@/lib/sqp";
+import { isPeriodKey, resolvePeriod } from "@/lib/periods";
+import { connection } from "next/server";
 import { SqpTab } from "@/components/product/SqpTab";
 import { isAdsConfigured } from "@/lib/amazon/ads";
 import { isSpApiConfigured } from "@/lib/amazon/spapi";
@@ -40,8 +42,10 @@ type Query = {
   mode: "organic" | "sponsored";
   view: "list" | "grid";
   q: string;
-  /** Search Query Performance period: a week start date or "4w". */
-  week: string;
+  /** Search Query Performance date range (same picker as the Dashboard). */
+  period: string;
+  from: string;
+  to: string;
 };
 
 export default function ProductPage(props: PageProps<"/products/[id]">) {
@@ -62,7 +66,9 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
     mode: one(sp.mode) === "sponsored" ? "sponsored" : "organic",
     view: one(sp.view) === "grid" ? "grid" : "list",
     q: one(sp.q).trim().toLowerCase(),
-    week: one(sp.week),
+    period: one(sp.period),
+    from: one(sp.from),
+    to: one(sp.to),
   };
 
   const detail = await getProductDetail(Number(id), query.range);
@@ -80,7 +86,13 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       params.set("view", next.view);
       if (next.q) params.set("q", next.q);
     }
-    if (next.tab === "queries" && next.week) params.set("week", next.week);
+    if (next.tab === "queries" && next.period) {
+      params.set("period", next.period);
+      if (next.period === "custom") {
+        params.set("from", next.from);
+        params.set("to", next.to);
+      }
+    }
     return `/products/${product.id}?${params}`;
   };
 
@@ -147,7 +159,7 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       {query.tab === "competitors" && <CompetitorsSection productId={product.id} range={query.range} />}
       {query.tab === "queries" && (
         <Suspense fallback={<div className="card h-72 animate-pulse" />}>
-          <SqpSection productId={product.id} week={query.week} currency={market.currency} />
+          <SqpSection productId={product.id} query={query} currency={market.currency} />
         </Suspense>
       )}
     </div>
@@ -229,9 +241,12 @@ async function KeywordsTab({ detail, query, href }: { detail: ProductDetail; que
   );
 }
 
-async function SqpSection({ productId, week, currency }: { productId: number; week: string; currency: string }) {
-  const data = await getSqpPerformance(productId, week);
-  if (!data.period) {
+async function SqpSection({ productId, query, currency }: { productId: number; query: Query; currency: string }) {
+  // Periods depend on the current time, so render per request.
+  await connection();
+  const period = resolvePeriod(isPeriodKey(query.period) ? query.period : "last_30", query.from, query.to);
+  const data = await getSqpPerformance(productId, { from: period.from, to: period.to });
+  if (!data.hasData) {
     if (!isSpApiConfigured()) return <SpApiNote what="Search Query Performance" />;
     return (
       <div className="card p-10 text-center text-sm text-muted-foreground">
@@ -240,7 +255,7 @@ async function SqpSection({ productId, week, currency }: { productId: number; we
       </div>
     );
   }
-  return <SqpTab productId={productId} data={data} currency={currency} />;
+  return <SqpTab productId={productId} data={data} currency={currency} period={{ key: period.key, from: period.from, to: period.to, label: period.label }} />;
 }
 
 function SpApiNote({ what }: { what: string }) {

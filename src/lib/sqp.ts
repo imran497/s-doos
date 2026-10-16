@@ -6,8 +6,6 @@ import { db } from "./db";
 // (searches → impressions → clicks → cart adds → purchases), yours vs. all products. A period of several
 // weeks adds the counts up; shares are computed from the totals.
 
-export type SqpPeriod = { key: string; label: string; weeks: string[] };
-
 export type SqpQueryRow = {
   query: string;
   /** Amazon's rank by search volume (1 = most searched); the best rank within the period. */
@@ -31,23 +29,26 @@ const fmtWeek = (start: string, end: string) => {
   return `${d(start)} – ${d(end)}`;
 };
 
-export async function getSqpPerformance(productId: number, periodKey?: string) {
+/**
+ * Search query performance for the weeks overlapping [from, to] (dates as yyyy-mm-dd). Amazon reports
+ * Search Query Performance per Sunday–Saturday week only, so a date range covers whole weeks.
+ */
+export async function getSqpPerformance(productId: number, range: { from: string; to: string }) {
   await connection();
-  const weeks = db
+  const all = db
     .prepare("SELECT DISTINCT week_start, week_end FROM sqp_weekly WHERE product_id = ? ORDER BY week_start DESC")
     .all(productId) as { week_start: string; week_end: string }[];
+  const inRange = all.filter((w) => w.week_start <= range.to && w.week_end >= range.from);
+  const latest = all[0] ? { start: all[0].week_start, end: all[0].week_end, label: fmtWeek(all[0].week_start, all[0].week_end) } : null;
+  if (!inRange.length) return { hasData: all.length > 0, latest, covered: null, rows: [] as SqpQueryRow[], totals: null, sessions: null };
 
-  const periods: SqpPeriod[] = [
-    ...(weeks.length > 1 ? [{ key: "4w", label: `Last ${Math.min(4, weeks.length)} weeks`, weeks: weeks.slice(0, 4).map((w) => w.week_start) }] : []),
-    ...weeks.map((w) => ({ key: w.week_start, label: `Week of ${fmtWeek(w.week_start, w.week_end)}`, weeks: [w.week_start] })),
-  ];
-  const period = periods.find((p) => p.key === periodKey) ?? periods.find((p) => p.weeks.length === 1) ?? null;
-  if (!period) return { periods, period: null, rows: [] as SqpQueryRow[], totals: null, sessions: null, range: null };
-
-  const range = {
-    from: period.weeks.at(-1)!,
-    to: weeks.find((w) => w.week_start === period.weeks[0])!.week_end,
+  const covered = {
+    from: inRange.at(-1)!.week_start,
+    to: inRange[0].week_end,
+    weeks: inRange.length,
+    label: inRange.length === 1 ? `week of ${fmtWeek(inRange[0].week_start, inRange[0].week_end)}` : `${inRange.length} weeks, ${fmtWeek(inRange.at(-1)!.week_start, inRange[0].week_end)}`,
   };
+  const period = { weeks: inRange.map((w) => w.week_start) };
   const marks = period.weeks.map(() => "?").join(",");
   const rows = (
     db
@@ -95,10 +96,10 @@ export async function getSqpPerformance(productId: number, periodKey?: string) {
   const traffic = product
     ? (db
         .prepare("SELECT SUM(sessions) sessions, SUM(page_views) pageViews, COUNT(*) days FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
-        .get(product.asin, product.marketplace, range.from, range.to) as { sessions: number | null; pageViews: number | null; days: number })
+        .get(product.asin, product.marketplace, covered.from, covered.to) as { sessions: number | null; pageViews: number | null; days: number })
     : null;
 
-  return { periods, period, rows, totals, sessions: traffic?.days ? traffic : null, range };
+  return { hasData: true, latest, covered, rows, totals, sessions: traffic?.days ? traffic : null };
 }
 
 export type SqpPerformance = Awaited<ReturnType<typeof getSqpPerformance>>;

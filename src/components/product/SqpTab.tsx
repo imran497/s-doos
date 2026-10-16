@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { formatValue } from "@/components/dashboard/format";
 import { TrackButton } from "@/components/product/SmallActions";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DashboardControls } from "@/components/dashboard/DashboardControls";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { PeriodKey } from "@/lib/periods";
 import type { SqpPerformance, SqpQueryRow } from "@/lib/sqp";
 import { cn } from "@/lib/utils";
 
@@ -41,10 +41,12 @@ const sortValue = (r: SqpQueryRow, key: SortKey): number | string => {
   }
 };
 
-export function SqpTab({ productId, data, currency }: { productId: number; data: SqpPerformance; currency: string }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+export function SqpTab({ productId, data, currency, period }: {
+  productId: number;
+  data: SqpPerformance;
+  currency: string;
+  period: { key: PeriodKey; from: string; to: string; label: string };
+}) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>({ key: "searches", desc: true });
 
@@ -59,14 +61,19 @@ export function SqpTab({ productId, data, currency }: { productId: number; data:
     });
   }, [data.rows, query, sort]);
 
-  if (!data.period || !data.totals) return null;
   const t = data.totals;
-  const setPeriod = (key: string) => {
-    const next = new URLSearchParams(params);
-    next.set("tab", "queries");
-    next.set("week", key);
-    router.push(`${pathname}?${next}`, { scroll: false });
-  };
+  if (!t) {
+    // Nothing in the chosen dates: just the explanation and the date picker.
+    return (
+      <div className="flex flex-col-reverse gap-3 rounded-lg border border-dashed bg-card px-5 py-6 lg:flex-row lg:items-center lg:justify-between">
+        <p className="min-w-0 flex-1 text-[13px] text-muted-foreground">
+          No weekly report covers {period.label.toLowerCase()}. Amazon publishes each week a few days after it ends
+          {data.latest ? `; the latest is ${data.latest.label}. Try “Last 30 days” or a custom range.` : "."}
+        </p>
+        <DashboardControls period={period.key} from={period.from} to={period.to} marketplace="US" marketplaceOptions={[]} />
+      </div>
+    );
+  }
 
   const cards = [
     { label: "Searches", value: int(t.searches), note: `${t.queries} search queries that showed your product` },
@@ -83,20 +90,12 @@ export function SqpTab({ productId, data, currency }: { productId: number; data:
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-muted-foreground">Amazon Brand Analytics: how shoppers found and bought your product, by what they searched for.</p>
-        <Select value={data.period.key} onValueChange={setPeriod}>
-          <SelectTrigger size="sm" className="h-8 w-auto gap-2 text-[13px] font-medium" aria-label="Week">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {data.periods.map((p) => (
-              <SelectItem key={p.key} value={p.key} className="text-[13px]">
-                {p.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col-reverse gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <p className="min-w-0 flex-1 text-[13px] text-muted-foreground">
+          Showing <b className="font-medium text-foreground">{data.covered?.label}</b>. Amazon reports search queries per Sunday–Saturday week, so your
+          dates are rounded to the weeks they touch.
+        </p>
+        <DashboardControls period={period.key} from={period.from} to={period.to} marketplace="US" marketplaceOptions={[]} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
