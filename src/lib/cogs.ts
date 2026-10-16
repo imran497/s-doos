@@ -62,7 +62,7 @@ export function costLayers(asin: string): CostLayer[] {
 export type FifoResult = {
   layers: CostLayer[];
   /** Cost of each order (or the earlier-sales block), in date order. `at` is a timestamp. */
-  sales: { at: number; units: number; cost: number; estimated: boolean }[];
+  sales: { at: number; units: number; cost: number; estimated: boolean; orderId: string | null }[];
   /** Units that left stock before SellerDoos's order history starts (or were removed or damaged). */
   untracked: number;
   /** Units sold beyond what shipments cover; costed at the last known cost. */
@@ -79,9 +79,9 @@ export function fifo(asin: string): FifoResult {
   const layers = costLayers(asin);
   const orders = (
     db
-      .prepare("SELECT purchase_date, SUM(qty) qty FROM orders WHERE asin = ? AND status != 'Cancelled' GROUP BY order_id ORDER BY purchase_date")
-      .all(asin) as { purchase_date: string; qty: number }[]
-  ).map((o) => ({ at: Date.parse(o.purchase_date), units: o.qty }));
+      .prepare("SELECT order_id, purchase_date, SUM(qty) qty FROM orders WHERE asin = ? AND status != 'Cancelled' GROUP BY order_id ORDER BY purchase_date")
+      .all(asin) as { order_id: string; purchase_date: string; qty: number }[]
+  ).map((o) => ({ at: Date.parse(o.purchase_date), units: o.qty, orderId: o.order_id }));
 
   // Amazon's latest count (stock is pooled across a region, so take the largest marketplace view, not a sum).
   const count = db
@@ -122,8 +122,8 @@ export function fifo(asin: string): FifoResult {
     return { cost: round2(cost), estimated: estimated || !layers.length };
   };
 
-  if (untracked) sales.push({ at: -Infinity, units: untracked, ...take(untracked) });
-  for (const o of orders) sales.push({ at: o.at, units: o.units, ...take(o.units) });
+  if (untracked) sales.push({ at: -Infinity, units: untracked, orderId: null, ...take(untracked) });
+  for (const o of orders) sales.push({ at: o.at, units: o.units, orderId: o.orderId, ...take(o.units) });
   return { layers, sales, untracked, uncovered };
 }
 

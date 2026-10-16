@@ -15,6 +15,7 @@ import { buildBriefing, keywordTrends } from "@/lib/insights";
 import { marketplaces } from "@/lib/marketplaces";
 import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queries";
 import { getSqpPerformance } from "@/lib/sqp";
+import { getProductOrders } from "@/lib/product-orders";
 import { isPeriodKey, resolvePeriod } from "@/lib/periods";
 import { connection } from "next/server";
 import { SqpTab } from "@/components/product/SqpTab";
@@ -284,8 +285,8 @@ function RangePicker({ query, href }: { query: Query; href: (c: Partial<Query>) 
 }
 
 async function SalesSection({ productId, range }: { productId: number; range: number }) {
-  const sales = await getSalesDetail(productId, range);
-  return sales && <SalesTab productId={productId} sales={sales} demo={!isSpApiConfigured()} />;
+  const [sales, orders] = await Promise.all([getSalesDetail(productId, range), getProductOrders(productId)]);
+  return sales && <SalesTab productId={productId} sales={sales} demo={!isSpApiConfigured()} orders={orders} />;
 }
 
 async function AdsSection({ productId, range }: { productId: number; range: number }) {

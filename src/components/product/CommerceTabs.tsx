@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { LineChart, MultiLineChart, Sparkline } from "@/components/charts";
+import { OrdersList } from "@/components/product/OrdersList";
+import type { ProductOrder } from "@/lib/product-orders";
+import { MultiLineChart, Sparkline } from "@/components/charts";
 import { ProductThumb } from "@/components/ProductThumb";
 import { StatTile } from "@/components/StatTile";
 import { AddCompetitorForm, RemoveCompetitorButton, UnitCostForm } from "@/components/product/CommerceForms";
@@ -19,10 +21,11 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 // ---- Sales & profit ----
 
-export function SalesTab({ productId, sales, demo }: { productId: number; sales: Sales; demo: boolean }) {
+export function SalesTab({ productId, sales, demo, orders }: { productId: number; sales: Sales; demo: boolean; orders: ProductOrder[] }) {
   if (!sales.hasData) {
     return (
-      <Empty>
+      <div className="space-y-5">
+        <Empty>
         {demo ? (
           <>
             No sales data yet. It comes from Amazon&apos;s Sales &amp; Traffic report (Brand Analytics role). Connect Seller Central in{" "}
@@ -35,6 +38,8 @@ export function SalesTab({ productId, sales, demo }: { productId: number; sales:
           </>
         )}
       </Empty>
+      <OrdersList orders={orders} />
+      </div>
     );
   }
   const c = sales.currency;
@@ -60,20 +65,7 @@ export function SalesTab({ productId, sales, demo }: { productId: number; sales:
         <StatTile label="Net profit" value={formatMoney(p.profit, c)} hint="After Amazon fees, refunds, ads and your cost of goods" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="card p-6">
-          <p className="eyebrow">Revenue per day</p>
-          <div className="mt-4">
-            <LineChart points={sales.series.map((s) => ({ label: s.date, value: s.revenue }))} format={(v) => formatMoney(v, c, true)} />
-          </div>
-        </section>
-        <section className="card p-6">
-          <p className="eyebrow">Conversion per day</p>
-          <div className="mt-4">
-            <LineChart points={sales.series.map((s) => ({ label: s.date, value: s.conversion == null ? null : Math.round(s.conversion * 1000) / 10 }))} color="var(--color-gold)" format={(v) => `${v}%`} />
-          </div>
-        </section>
-      </div>
+      <OrdersList orders={orders} />
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <section className="card p-6">
