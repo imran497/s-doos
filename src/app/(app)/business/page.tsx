@@ -7,6 +7,9 @@ import { SyncAmazonButton } from "@/components/SettingsControls";
 import { StatTile } from "@/components/StatTile";
 import { isSpApiConfigured } from "@/lib/amazon/spapi";
 import { getBusiness } from "@/lib/commerce";
+import { isPeriodKey, resolvePeriod } from "@/lib/periods";
+import { DashboardControls } from "@/components/dashboard/DashboardControls";
+import { connection } from "next/server";
 import { formatMoney, percent } from "@/lib/metrics";
 
 export const metadata: Metadata = { title: "Business" };
@@ -31,8 +34,12 @@ export default function BusinessPage(props: PageProps<"/business">) {
 
 async function BusinessContent({ searchParams }: PageProps<"/business">) {
   const sp = await searchParams;
-  const range = [7, 14, 30].includes(Number(sp.range)) ? Number(sp.range) : 30;
-  const b = await getBusiness(range);
+  // Periods depend on the current time, so render per request.
+  await connection();
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const key = one(sp.period);
+  const period = resolvePeriod(isPeriodKey(key) ? key : "last_30", one(sp.from), one(sp.to));
+  const b = await getBusiness({ from: period.from, to: period.to });
   const c = b.totals.currency;
 
   const connected = isSpApiConfigured();
@@ -57,17 +64,7 @@ async function BusinessContent({ searchParams }: PageProps<"/business">) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-      <div className="flex w-fit rounded-full bg-white p-1 text-sm shadow-sm">
-        {[7, 14, 30].map((r) => (
-          <Link
-            key={r}
-            href={`/business?range=${r}`}
-            className={`rounded-full px-3.5 py-1.5 font-semibold transition ${range === r ? "bg-ink text-white" : "text-muted-foreground hover:text-ink"}`}
-          >
-            {r} days
-          </Link>
-        ))}
-      </div>
+        <DashboardControls period={period.key} from={period.from} to={period.to} marketplace="US" marketplaceOptions={[]} />
         {b.live ? (
           <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand-dark">
             ● Live from Amazon{b.lastSync ? ` · synced ${b.lastSync.slice(5, 16)}` : ""}
@@ -79,9 +76,13 @@ async function BusinessContent({ searchParams }: PageProps<"/business">) {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="Revenue" value={formatMoney(b.totals.revenue, c)} />
-        <StatTile label="Units" value={b.totals.units.toLocaleString()} />
-        <StatTile label="Conversion" value={percent(b.totals.conversion)} />
+        <StatTile label="Revenue" value={formatMoney(b.totals.revenue, c)} hint="From your orders (US dollars), after promotions" />
+        <StatTile label="Units" value={b.totals.units.toLocaleString()} hint="From your orders, cancelled ones left out" />
+        <StatTile
+          label="Conversion"
+          value={percent(b.totals.conversion)}
+          hint={`Units ÷ sessions on the ${b.totals.trafficDays} of ${b.dates.length} days Amazon's Sales & Traffic report covers`}
+        />
         <StatTile label="Net profit" value={formatMoney(b.totals.profit, c)} hint="After Amazon fees, refunds, ads and cost of goods" />
       </div>
 

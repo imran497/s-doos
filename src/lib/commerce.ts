@@ -317,16 +317,46 @@ export async function getResearch({ q, onlyMine }: { q: string; onlyMine: boolea
 
 // ---- Business ----
 
-export async function getBusiness(days: number) {
+/** Every date from `from` to `to` (yyyy-mm-dd, inclusive). */
+const datesBetween = (from: string, to: string) => {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+  return out.length ? out : [to];
+};
+
+export async function getBusiness(range: { from: string; to: string }) {
   await connection();
-  const dates = rangeDates(days);
+  const dates = datesBetween(range.from, range.to);
   const products = db.prepare("SELECT id, asin, marketplace, title, image_url, unit_cost FROM products ORDER BY id").all() as (ProductRef & { title: string | null; image_url: string | null })[];
-  const totals = db
-    .prepare("SELECT COALESCE(SUM(units), 0) units, COALESCE(SUM(revenue), 0) revenue, COALESCE(SUM(sessions), 0) sessions FROM sales_traffic WHERE date BETWEEN ? AND ?")
-    .get(dates[0], dates.at(-1)) as { units: number; revenue: number; sessions: number };
-  const daily = db
-    .prepare("SELECT date, SUM(revenue) revenue, SUM(units) units FROM sales_traffic WHERE date BETWEEN ? AND ? GROUP BY date")
-    .all(dates[0], dates.at(-1)) as { date: string; revenue: number; units: number }[];
+  // Revenue and units from orders (current to the hour; the Sales & Traffic report lags and can have gaps),
+  // by the order's day in the app's time zone. USD orders only, like the other money on this page.
+  const localDay = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const orderRows = (
+    db
+      .prepare("SELECT purchase_date, qty, item_price, promo_discount, currency FROM orders WHERE status != 'Cancelled' AND purchase_date >= ?")
+      .all(addDays(dates[0], -1)) as { purchase_date: string; qty: number; item_price: number; promo_discount: number; currency: string }[]
+  )
+    .map((o) => ({ ...o, day: localDay(o.purchase_date) }))
+    .filter((o) => o.day >= dates[0] && o.day <= dates.at(-1)!);
+  const byDay = new Map<string, { revenue: number; units: number }>();
+  for (const o of orderRows) {
+    const d = byDay.get(o.day) ?? { revenue: 0, units: 0 };
+    byDay.set(o.day, { revenue: d.revenue + (o.currency === "USD" || !o.currency ? o.item_price - o.promo_discount : 0), units: d.units + o.qty });
+  }
+  const daily = [...byDay.entries()].map(([date, v]) => ({ date, ...v }));
+  // Conversion needs sessions, which only the Sales & Traffic report has: use the days it covers.
+  const traffic = db
+    .prepare("SELECT COALESCE(SUM(units), 0) units, COALESCE(SUM(sessions), 0) sessions, COUNT(DISTINCT date) days FROM sales_traffic WHERE date BETWEEN ? AND ?")
+    .get(dates[0], dates.at(-1)) as { units: number; sessions: number; days: number };
+  const totals = {
+    units: daily.reduce((n, d) => n + d.units, 0),
+    revenue: daily.reduce((n, d) => n + d.revenue, 0),
+    sessions: traffic.sessions,
+    trafficDays: traffic.days,
+  };
   const perProduct = products.map((p) => ({ ...p, profit: productProfit(p.id, dates[0], dates.at(-1)!), stock: stockFor(p.asin, p.marketplace) }));
   const orders = db.prepare("SELECT * FROM orders ORDER BY purchase_date DESC LIMIT 20").all() as {
     order_id: string;
@@ -346,15 +376,19 @@ export async function getBusiness(days: number) {
     )
     .all() as { marketplace: MarketplaceCode; sku: string; asin: string; fulfillable: number; inbound: number; reserved: number; unfulfillable: number; date: string }[];
   const inventoryRows = inventory.map((i) => {
-    const pace = (db.prepare("SELECT COALESCE(SUM(units), 0) / 14.0 v FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date > ?").get(i.asin, i.marketplace, addDays(today(), -15)) as { v: number }).v;
+    // Sales pace from orders of the last 14 days.
+    const pace = (db
+      .prepare("SELECT COALESCE(SUM(qty), 0) / 14.0 v FROM orders WHERE asin = ? AND marketplace = ? AND status != 'Cancelled' AND purchase_date >= ?")
+      .get(i.asin, i.marketplace, addDays(today(), -14)) as { v: number }).v;
     const daysOfCover = pace > 0 ? Math.floor(i.fulfillable / pace) : null;
     return { ...i, dailyUnits: pace, daysOfCover, low: daysOfCover != null && daysOfCover < getSettings().lowStockDays };
   });
   const profit = perProduct.reduce((s, p) => s + p.profit.profit, 0);
   return {
     dates,
-    totals: { ...totals, conversion: ratio(totals.units, totals.sessions), profit, currency: perProduct.find((p) => p.profit.currency)?.profit.currency || "USD" },
-    series: dates.map((d) => daily.find((x) => x.date === d)?.revenue ?? null),
+    totals: { ...totals, conversion: ratio(traffic.units, traffic.sessions), profit, currency: "USD" },
+    // Orders are complete, so a day without orders is $0, not missing.
+    series: dates.map((d) => byDay.get(d)?.revenue ?? 0),
     perProduct,
     orders,
     inventory: inventoryRows,
