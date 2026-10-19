@@ -123,12 +123,14 @@ function document(r) {
   throw new Error(`no document for ${r.type}`);
 }
 
+// Sample finance events, dated a few days ago so they always fall in the regular 14-day sync window.
+const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10) + "T10:00:00Z";
 const financePages = [
   {
     ShipmentEventList: [
       {
         AmazonOrderId: "111-0000001-0000001",
-        PostedDate: "2026-10-02T10:00:00Z",
+        PostedDate: daysAgo(5),
         MarketplaceName: "Amazon.com",
         ShipmentItemList: [
           {
@@ -151,7 +153,7 @@ const financePages = [
     RefundEventList: [
       {
         AmazonOrderId: "111-0000009-0000009",
-        PostedDate: "2026-10-03T10:00:00Z",
+        PostedDate: daysAgo(4),
         MarketplaceName: "Amazon.com",
         ShipmentItemAdjustmentList: [
           {
