@@ -2,13 +2,16 @@ import Link from "next/link";
 import { AdsDailyChart } from "@/components/product/AdsDailyChart";
 import { OrdersList } from "@/components/product/OrdersList";
 import type { ProductOrder } from "@/lib/product-orders";
-import { MultiLineChart, Sparkline } from "@/components/charts";
+import { Sparkline } from "@/components/charts";
+import { Panel, tableStyles } from "@/components/Panel";
+import { RankChart } from "@/components/product/RankChart";
 import { ProductThumb } from "@/components/ProductThumb";
 import { StatTile } from "@/components/StatTile";
 import { AddCompetitorForm, RemoveCompetitorButton, UnitCostForm } from "@/components/product/CommerceForms";
 import { TrackButton } from "@/components/product/SmallActions";
 import type { getAdsDetail, getCompetitorDetail, getSalesDetail } from "@/lib/commerce";
 import { compact, formatMoney, percent, signedPercent } from "@/lib/metrics";
+import { cn } from "@/lib/utils";
 
 type Sales = NonNullable<Awaited<ReturnType<typeof getSalesDetail>>>;
 type Ads = NonNullable<Awaited<ReturnType<typeof getAdsDetail>>>;
@@ -17,7 +20,7 @@ type Competitors = NonNullable<Awaited<ReturnType<typeof getCompetitorDetail>>>;
 const label = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="card p-10 text-center text-sm text-muted-foreground">{children}</div>;
+  return <div className="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-[13px] text-muted-foreground">{children}</div>;
 }
 
 // ---- Sales & profit ----
@@ -45,7 +48,7 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
       <Empty>
         {demo ? (
           <>
-            No sales yet. Connect Seller Central in <Link href="/settings" className="font-semibold text-brand">Settings</Link>, then click “Sync Amazon data”.
+            No sales yet. Connect Seller Central in <Link href="/settings" className="font-medium text-brand">Settings</Link>, then click “Sync Amazon data”.
           </>
         ) : (
           <>No orders for this product yet.</>
@@ -107,29 +110,26 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
       <OrdersList orders={orders} />
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <section className="card p-6">
-          <p className="eyebrow">Where the money went</p>
-          <p className="mt-1 text-xs text-muted-foreground">From what Amazon posted to your account in this period (Finances API).</p>
-          <dl className="mt-4 divide-y divide-line text-sm">
+        <Panel title="Where the money went" meta="What Amazon posted to your account in this period (Finances API)">
+          <dl className="divide-y text-[13px]">
             {lines.map((l) => (
-              <div key={l.label} className={`flex items-center justify-between py-2.5 ${l.strong ? "text-base font-extrabold" : ""}`} title={l.hint}>
+              <div key={l.label} className={cn("flex items-center justify-between py-2.5", l.strong && "font-semibold")} title={l.hint}>
                 <dt className={l.strong ? "" : "text-muted-foreground"}>{l.label}</dt>
-                <dd className={`tabular-nums ${l.value != null && l.value < 0 ? "text-coral" : ""}`}>
-                  {l.value == null ? <span className="text-xs text-muted-foreground">add your unit cost →</span> : formatMoney(l.value, c)}
+                <dd className={cn("tabular-nums", l.value != null && l.value < 0 && !l.strong && "text-muted-foreground", l.strong && l.value != null && (l.value < 0 ? "text-destructive" : "text-positive"))}>
+                  {l.value == null ? <span className="text-xs font-normal text-muted-foreground">add your unit cost →</span> : formatMoney(l.value, c)}
                 </dd>
               </div>
             ))}
           </dl>
-          {p.sales > 0 && <p className="mt-2 text-right text-xs font-semibold text-muted-foreground">Margin {percent((p.profit + p.adSpend) / p.sales)} (before ads)</p>}
-        </section>
+          {p.sales > 0 && <p className="mt-2 text-right text-xs text-muted-foreground">Margin {percent((p.profit + p.adSpend) / p.sales)} (before ads)</p>}
+        </Panel>
 
         <div className="space-y-5">
-          <section className="card space-y-3 p-6">
-            <p className="eyebrow">Cost of goods</p>
+          <Panel title="Cost of goods">
             {sales.shipmentCost ? (
               <>
-                <p className="text-2xl font-semibold tabular-nums">{formatMoney(sales.shipmentCost.unitCost, "USD")}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xl font-semibold tracking-tight tabular-nums">{formatMoney(sales.shipmentCost.unitCost, "USD")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Per unit, from shipment {sales.shipmentCost.ref} (first-in, first-out).{" "}
                   <Link href="/shipments" className="font-medium text-brand hover:text-brand-dark">
                     Shipments
@@ -137,7 +137,7 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
                 </p>
               </>
             ) : (
-              <>
+              <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
                   What one unit costs you to make and ship to Amazon. Used for profit. Adding a{" "}
                   <Link href="/shipments" className="font-medium text-brand hover:text-brand-dark">
@@ -146,31 +146,32 @@ export function SalesTab({ productId, sales, demo, orders }: { productId: number
                   works it out for you.
                 </p>
                 <UnitCostForm productId={productId} unitCost={sales.unitCost} currency={c} />
-              </>
+              </div>
             )}
-          </section>
-          <section className={`card p-6 ${sales.stock?.low ? "ring-2 ring-coral/40" : ""}`}>
-            <p className="eyebrow">FBA stock</p>
+          </Panel>
+          <Panel
+            title="FBA stock"
+            actions={sales.stock?.low ? <span className="rounded bg-coral-soft px-1.5 py-0.5 text-[11px] font-medium text-destructive">Low stock</span> : undefined}
+          >
             {sales.stock ? (
               <>
-                <p className="mt-2 text-3xl font-extrabold tabular-nums">{sales.stock.fulfillable.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">
-                  units available
-                  {sales.stock.daysOfCover != null && (
-                    <>
-                      {" "}· <span className={sales.stock.low ? "font-bold text-coral" : "font-semibold text-ink"}>~{sales.stock.daysOfCover} days</span> at{" "}
-                      {sales.stock.dailyUnits.toFixed(1)}/day
-                    </>
-                  )}
+                <p className="text-xl font-semibold tracking-tight tabular-nums">
+                  {sales.stock.fulfillable.toLocaleString()} <span className="text-[13px] font-normal text-muted-foreground">units available</span>
                 </p>
+                {sales.stock.daysOfCover != null && (
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    <span className={cn("font-medium", sales.stock.low ? "text-destructive" : "text-foreground")}>~{sales.stock.daysOfCover} days</span> at{" "}
+                    {sales.stock.dailyUnits.toFixed(1)}/day
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-muted-foreground">
                   {sales.stock.inbound.toLocaleString()} inbound · {sales.stock.reserved.toLocaleString()} reserved · as of {sales.stock.asOf}
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">No FBA inventory found for this ASIN.</p>
+              <p className="text-[13px] text-muted-foreground">No FBA inventory found for this ASIN.</p>
             )}
-          </section>
+          </Panel>
         </div>
       </div>
       {demo && <p className="text-xs text-muted-foreground">Sample data. Connect SP-API in Settings to see your real numbers.</p>}
@@ -185,7 +186,7 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
     return (
       <Empty>
         No ad data yet. It comes from the Amazon Ads API (Sponsored Products). Connect it in{" "}
-        <Link href="/settings" className="font-semibold text-brand">Settings</Link>.
+        <Link href="/settings" className="font-medium text-brand">Settings</Link>.
       </Empty>
     );
   }
@@ -240,10 +241,10 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
         <Metric label="Clicks" sample={sample} value={t.clicks.toLocaleString()} hint={`${t.impressions.toLocaleString()} impressions`} />
       </div>
 
-      <section className="rounded-lg border bg-card px-5 py-4 shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[13px] font-semibold">Ads and profit per day{sample ? " · sample ad data" : ""}</h3>
-          <span className="flex items-center gap-4 text-xs text-muted-foreground">
+      <Panel
+        title={`Ads and profit per day${sample ? " · sample ad data" : ""}`}
+        actions={
+          <span className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[var(--chart-1)]" /> Ad sales
             </span>
@@ -256,20 +257,18 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
             </span>
             <span>Hover a day for details</span>
           </span>
-        </div>
-        <div className="mt-3">
-          <AdsDailyChart days={days} currency={currency} sample={sample} />
-        </div>
-      </section>
+        }
+      >
+        <AdsDailyChart days={days} currency={currency} sample={sample} />
+      </Panel>
 
       {converting.length > 0 && (
-        <section className="card bg-gradient-to-br from-white to-brand-soft/60 p-6">
-          <p className="eyebrow">Converting in ads, not tracked organically{ads.termsScope === "marketplace" ? " (all products)" : ""}</p>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Panel title={`Converting in ads, not tracked organically${ads.termsScope === "marketplace" ? " (all products)" : ""}`} meta="Search terms that led to orders from ads; track them to see your organic rank">
+          <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             {converting.map((x) => (
               <li key={x.search_term} className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{x.search_term}</span>
+                  <span className="block truncate text-[13px] font-medium">{x.search_term}</span>
                   <span className="text-xs text-muted-foreground">
                     {x.purchases} order{x.purchases === 1 ? "" : "s"} · {percent(x.acos, 0)} ACoS
                   </span>
@@ -278,58 +277,61 @@ export function AdsTab({ productId, ads, currency, demo, orders }: { productId: 
               </li>
             ))}
           </ul>
-        </section>
+        </Panel>
       )}
 
-      <section className="card overflow-x-auto">
-        <div className="px-6 pt-6">
-          <p className="eyebrow">Customer search terms</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {ads.termsScope === "product"
-              ? "What shoppers typed before clicking ads in the campaigns that advertise this product (7-day attribution). Amazon doesn't report search terms per product, so they're matched by campaign and ad group."
-              : "What shoppers typed before clicking any of your Sponsored Products ads in this marketplace (7-day attribution). Amazon doesn't report search terms per product; once your ad reports name the campaigns, only this product's campaigns are shown."}
-          </p>
-        </div>
-        <table className="mt-4 w-full text-sm">
-          <thead className="border-y border-line text-right text-xs font-semibold text-muted-foreground">
-            <tr>
-              <th className="px-6 py-3 text-left">Search term</th>
-              <th className="px-3 py-3">Impr.</th>
-              <th className="px-3 py-3">Clicks</th>
-              <th className="px-3 py-3">Spend</th>
-              <th className="px-3 py-3">Orders</th>
-              <th className="px-3 py-3">Sales</th>
-              <th className="px-3 py-3">ACoS</th>
-              <th className="px-3 py-3" title="Share of top-of-search impressions you won">Top of search</th>
-              <th className="px-6 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line text-right tabular-nums">
-            {ads.terms.slice(0, 60).map((x) => (
-              <tr key={x.search_term} className="hover:bg-canvas/60">
-                <td className="px-6 py-2.5 text-left font-semibold">
-                  {x.search_term}
-                  {x.shared && (
-                    <span className="ml-2 rounded bg-[#f1f3f7] px-1.5 py-0.5 text-[11px] font-medium text-[#545969]" title="This campaign also advertises other products, so this term may belong to them">
-                      shared
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5 text-muted-foreground">{compact(x.impressions)}</td>
-                <td className="px-3 py-2.5">{x.clicks}</td>
-                <td className="px-3 py-2.5">{formatMoney(x.cost, currency)}</td>
-                <td className="px-3 py-2.5">{x.purchases}</td>
-                <td className="px-3 py-2.5">{formatMoney(x.sales, currency)}</td>
-                <td className={`px-3 py-2.5 font-bold ${x.acos == null ? "text-coral" : x.acos <= 0.3 ? "text-brand" : x.acos > 0.6 ? "text-coral" : ""}`}>
-                  {x.acos == null ? "no sales" : percent(x.acos, 0)}
-                </td>
-                <td className="px-3 py-2.5 text-muted-foreground">{x.top_share == null ? "–" : `${Math.round(x.top_share)}%`}</td>
-                <td className="px-6 py-2.5">{x.tracked ? <span className="text-xs font-semibold text-brand">Tracking</span> : <TrackButton productId={productId} keyword={x.search_term} />}</td>
+      <Panel
+        title="Customer search terms"
+        meta={
+          ads.termsScope === "product"
+            ? "What shoppers typed before clicking ads in the campaigns that advertise this product (7-day attribution). Amazon doesn't report search terms per product, so they're matched by campaign and ad group."
+            : "What shoppers typed before clicking any of your Sponsored Products ads in this marketplace (7-day attribution). Once your ad reports name the campaigns, only this product's campaigns are shown."
+        }
+        bodyClassName="p-0"
+      >
+        <div className="overflow-x-auto">
+          <table className={cn(tableStyles.table, "min-w-[820px]")}>
+            <thead className={tableStyles.head}>
+              <tr className="border-b text-right">
+                <th className="text-left">Search term</th>
+                <th>Impr.</th>
+                <th>Clicks</th>
+                <th>Spend</th>
+                <th>Orders</th>
+                <th>Sales</th>
+                <th>ACoS</th>
+                <th title="Share of top-of-search impressions you won">Top of search</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody className="text-right tabular-nums">
+              {ads.terms.slice(0, 60).map((x) => (
+                <tr key={x.search_term} className={cn(tableStyles.row, "hover:bg-canvas/50")}>
+                  <td className="text-left font-medium">
+                    {x.search_term}
+                    {x.shared && (
+                      <span className="ml-2 rounded bg-[#f1f3f7] px-1.5 py-0.5 text-[11px] font-medium text-[#545969]" title="This campaign also advertises other products, so this term may belong to them">
+                        shared
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-muted-foreground">{compact(x.impressions)}</td>
+                  <td>{x.clicks}</td>
+                  <td>{formatMoney(x.cost, currency)}</td>
+                  <td>{x.purchases}</td>
+                  <td>{formatMoney(x.sales, currency)}</td>
+                  <td className={cn("font-medium whitespace-nowrap", x.acos == null || x.acos > 0.6 ? "text-destructive" : x.acos <= 0.3 ? "text-positive" : "")}>
+                    {x.acos == null ? "no sales" : percent(x.acos, 0)}
+                  </td>
+                  <td className="text-muted-foreground">{x.top_share == null ? "—" : `${Math.round(x.top_share)}%`}</td>
+                  <td>{x.tracked ? <span className="text-xs font-medium text-brand">Tracking</span> : <TrackButton productId={productId} keyword={x.search_term} />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!ads.terms.length && <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">No search terms in this period.</p>}
+      </Panel>
       {demo && <p className="text-xs text-muted-foreground">Sample data. Connect the Amazon Ads API in Settings to see your campaigns.</p>}
     </div>
   );
@@ -342,79 +344,70 @@ export function CompetitorsTab({ productId, data, demo }: { productId: number; d
   const currency = rows.find((r) => r.latest?.currency)?.latest?.currency || "USD";
   return (
     <div className="space-y-5">
-      <section className="card p-6">
+      <Panel title="Add a competitor" meta="Daily BSR from the Catalog API; Buy Box, lowest price and seller count from the Pricing API. Find rivals in Research (top clicked ASINs).">
         <AddCompetitorForm productId={productId} />
-        <p className="mt-2 text-xs text-muted-foreground">Daily BSR from the Catalog API and Buy Box, lowest price and seller count from the Pricing API. Find rivals in Research (top clicked ASINs).</p>
-      </section>
+      </Panel>
 
-      <section className="card p-6">
-        <p className="eyebrow">Best Sellers Rank</p>
-        <div className="mt-4">
-          <MultiLineChart
-            invert
-            labels={data.dates.map(label)}
-            format={(v) => `#${compact(v)}`}
-            series={rows.map((r) => ({ name: r.you ? "You" : (r.brand ?? r.title ?? r.asin).slice(0, 24), values: r.bsrSeries, highlight: r.you }))}
-          />
-        </div>
-      </section>
+      <Panel title="Best Sellers Rank" meta="Lower is better; hover a day to compare">
+        <RankChart labels={data.dates.map(label)} series={rows.map((r) => ({ name: r.you ? "You" : (r.brand ?? r.title ?? r.asin).slice(0, 28), values: r.bsrSeries, you: r.you }))} />
+      </Panel>
 
-      <section className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-line text-right text-xs font-semibold text-muted-foreground">
-            <tr>
-              <th className="px-6 py-3 text-left">Product</th>
-              <th className="px-3 py-3">BSR</th>
-              <th className="px-3 py-3 text-left">BSR trend</th>
-              <th className="px-3 py-3">Buy Box</th>
-              <th className="px-3 py-3">7-day price change</th>
-              <th className="px-3 py-3">Lowest</th>
-              <th className="px-3 py-3">Sellers</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line text-right tabular-nums">
-            {rows.map((r) => {
-              const bsrDelta = (() => {
-                const v = r.bsrSeries.filter((x): x is number => x != null);
-                return v.length > 1 ? v[0] - v[v.length - 1] : null;
-              })();
-              const priceChange = signedPercent(r.priceChange);
-              return (
-                <tr key={r.asin} className={r.you ? "bg-brand-soft/40" : "hover:bg-canvas/60"}>
-                  <td className="px-6 py-3 text-left">
-                    <div className="flex items-center gap-3">
-                      <ProductThumb src={r.image_url} size={40} />
-                      <div className="min-w-0">
-                        <p className="line-clamp-1 max-w-72 font-semibold">{r.you ? "Your product" : (r.title ?? "Title appears after the next sync")}</p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          {r.asin}
-                          {!r.you && r.brand ? ` · ${r.brand}` : ""}
-                        </p>
+      <Panel title="Side by side" meta="Latest check for each ASIN" bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className={cn(tableStyles.table, "min-w-[860px]")}>
+            <thead className={tableStyles.head}>
+              <tr className="border-b text-right">
+                <th className="text-left">Product</th>
+                <th>BSR</th>
+                <th className="text-left">BSR trend</th>
+                <th>Buy Box</th>
+                <th>7-day price change</th>
+                <th>Lowest</th>
+                <th>Sellers</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody className="text-right tabular-nums">
+              {rows.map((r) => {
+                const bsrDelta = (() => {
+                  const v = r.bsrSeries.filter((x): x is number => x != null);
+                  return v.length > 1 ? v[0] - v[v.length - 1] : null;
+                })();
+                const priceChange = signedPercent(r.priceChange);
+                return (
+                  <tr key={r.asin} className={cn(tableStyles.row, r.you ? "bg-brand-soft/40" : "hover:bg-canvas/50")}>
+                    <td className="text-left">
+                      <div className="flex items-center gap-3">
+                        <ProductThumb src={r.image_url} size={32} />
+                        <div className="min-w-0">
+                          <p className="line-clamp-1 max-w-72 font-medium">{r.you ? "Your product" : (r.title ?? "Title appears after the next sync")}</p>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            {r.asin}
+                            {!r.you && r.brand ? ` · ${r.brand}` : ""}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 font-bold">{r.latest?.bsr ? `#${r.latest.bsr.toLocaleString()}` : "–"}</td>
-                  <td className="px-3 py-3">
-                    <Sparkline series={r.bsrSeries} delta={bsrDelta} />
-                  </td>
-                  <td className="px-3 py-3 font-semibold">
-                    {formatMoney(r.latest?.buy_box_price, currency)}
-                    {r.you && r.latest?.you_have_buy_box === 0 && <span className="ml-1 rounded-full bg-coral-soft px-1.5 text-[10px] font-bold text-coral">LOST</span>}
-                  </td>
-                  <td className={`px-3 py-3 font-bold ${r.priceChange == null || r.priceChange === 0 ? "text-muted-foreground" : r.priceChange < 0 ? "text-coral" : "text-brand"}`}>
-                    {priceChange ?? "–"}
-                  </td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatMoney(r.latest?.lowest_price, currency)}</td>
-                  <td className="px-3 py-3 text-muted-foreground">{r.latest?.offer_count ?? "–"}</td>
-                  <td className="px-4 py-3">{!r.you && <RemoveCompetitorButton competitorId={r.id} />}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!data.rivals.length && <p className="p-6 text-center text-sm text-muted-foreground">Add competitor ASINs above to compare BSR and prices.</p>}
-      </section>
+                    </td>
+                    <td className="font-medium">{r.latest?.bsr ? `#${r.latest.bsr.toLocaleString()}` : "—"}</td>
+                    <td>
+                      <Sparkline series={r.bsrSeries} delta={bsrDelta} />
+                    </td>
+                    <td>
+                      {formatMoney(r.latest?.buy_box_price, currency)}
+                      {r.you && r.latest?.you_have_buy_box === 0 && <span className="ml-1.5 rounded bg-coral-soft px-1.5 py-0.5 text-[11px] font-medium text-destructive">Lost</span>}
+                    </td>
+                    <td className={cn(r.priceChange == null || r.priceChange === 0 ? "text-muted-foreground" : r.priceChange < 0 ? "text-destructive" : "text-positive")}>{priceChange ?? "—"}</td>
+                    <td className="text-muted-foreground">{formatMoney(r.latest?.lowest_price, currency)}</td>
+                    <td className="text-muted-foreground">{r.latest?.offer_count ?? "—"}</td>
+                    <td>{!r.you && <RemoveCompetitorButton competitorId={r.id} />}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {!data.rivals.length && <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">Add competitor ASINs above to compare BSR and prices.</p>}
+      </Panel>
       {demo && <p className="text-xs text-muted-foreground">Sample data. Connect SP-API in Settings to see live BSR and prices.</p>}
     </div>
   );

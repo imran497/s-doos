@@ -35,12 +35,19 @@ function stockFor(asin: string, m: MarketplaceCode) {
 
 // ---- Sales & profit ----
 
-export async function getSalesDetail(productId: number, days: number) {
+/** A date range (yyyy-mm-dd, inclusive) as a list of days, plus the same number of days just before it. */
+export type DateRange = { from: string; to: string };
+function rangeAndBefore(range: DateRange) {
+  const dates = datesBetween(range.from, range.to);
+  const prevDates = datesBetween(addDays(range.from, -dates.length), addDays(range.from, -1));
+  return { dates, prevDates };
+}
+
+export async function getSalesDetail(productId: number, range: DateRange) {
   await connection();
   const p = productRef(productId);
   if (!p) return null;
-  const dates = rangeDates(days);
-  const prevDates = rangeDates(days, addDays(dates[0], -1));
+  const { dates, prevDates } = rangeAndBefore(range);
   const rows = db
     .prepare("SELECT * FROM sales_traffic WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
     .all(p.asin, p.marketplace, prevDates[0], dates.at(-1)) as {
@@ -85,11 +92,11 @@ export async function getSalesDetail(productId: number, days: number) {
 
 // ---- Ads ----
 
-export async function getAdsDetail(productId: number, days: number) {
+export async function getAdsDetail(productId: number, range: DateRange) {
   await connection();
   const p = productRef(productId);
   if (!p) return null;
-  const dates = rangeDates(days);
+  const { dates } = rangeAndBefore(range);
   const daily = db
     .prepare("SELECT date, cost, sales, clicks, impressions, purchases, units, source FROM ads_products WHERE asin = ? AND marketplace = ? AND date BETWEEN ? AND ?")
     .all(p.asin, p.marketplace, dates[0], dates.at(-1)) as { date: string; cost: number; sales: number; clicks: number; impressions: number; purchases: number; units: number; source: string }[];
@@ -164,11 +171,11 @@ export type KeywordAds = Awaited<ReturnType<typeof getKeywordAds>>;
 
 // ---- Competitors ----
 
-export async function getCompetitorDetail(productId: number, days: number) {
+export async function getCompetitorDetail(productId: number, range: DateRange) {
   await connection();
   const p = productRef(productId);
   if (!p) return null;
-  const dates = rangeDates(days, today());
+  const { dates } = rangeAndBefore(range);
   const own = db.prepare("SELECT title, image_url FROM products WHERE id = ?").get(productId) as { title: string | null; image_url: string | null };
   const rivals = db.prepare("SELECT id, asin, title, brand, image_url FROM competitors WHERE product_id = ? ORDER BY id").all(productId) as {
     id: number;
@@ -190,6 +197,22 @@ export async function getCompetitorDetail(productId: number, days: number) {
     offer_count: number | null;
     you_have_buy_box: number | null;
   }[];
+
+  // Your own BSR comes from the daily rank check (bsr_snapshots, one row per category), not the listing snapshots.
+  // Use the category the rivals are ranked in so the lines compare like for like; otherwise the broadest one.
+  const ownRanks = db
+    .prepare("SELECT checked_on date, category, rank FROM bsr_snapshots WHERE product_id = ? AND checked_on BETWEEN ? AND ?")
+    .all(productId, addDays(dates[0], -7), dates.at(-1)) as { date: string; category: string; rank: number }[];
+  const rivalCategories = snaps.filter((s) => s.asin !== p.asin && s.bsr != null && s.bsr_category).map((s) => s.bsr_category!);
+  const ownCategory =
+    rivalCategories.find((c) => ownRanks.some((r) => r.category === c)) ??
+    ownRanks.reduce<{ category: string; rank: number } | null>((top, r) => (!top || r.rank > top.rank ? r : top), null)?.category;
+  for (const r of ownRanks.filter((r) => r.category === ownCategory)) {
+    const snap = snaps.find((s) => s.asin === p.asin && s.date === r.date);
+    if (snap && snap.bsr == null) Object.assign(snap, { bsr: r.rank, bsr_category: r.category });
+    else if (!snap)
+      snaps.push({ asin: p.asin, date: r.date, bsr: r.rank, bsr_category: r.category, buy_box_price: null, lowest_price: null, currency: "", offer_count: null, you_have_buy_box: null });
+  }
 
   const summarize = (asin: string) => {
     const mine = snaps.filter((s) => s.asin === asin).sort((a, b) => a.date.localeCompare(b.date));
@@ -318,11 +341,11 @@ export async function getResearch({ q, onlyMine }: { q: string; onlyMine: boolea
 // ---- Business ----
 
 /** Every date from `from` to `to` (yyyy-mm-dd, inclusive). */
-const datesBetween = (from: string, to: string) => {
+function datesBetween(from: string, to: string) {
   const out: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
   return out.length ? out : [to];
-};
+}
 
 export async function getBusiness(range: { from: string; to: string }) {
   await connection();
@@ -372,10 +395,12 @@ export async function getBusiness(range: { from: string; to: string }) {
   const inventory = db
     .prepare(
       `SELECT i.* FROM inventory_snapshots i
-       WHERE i.date = (SELECT MAX(date) FROM inventory_snapshots j WHERE j.marketplace = i.marketplace) ORDER BY i.fulfillable`,
+       WHERE i.date = (SELECT MAX(date) FROM inventory_snapshots j WHERE j.marketplace = i.marketplace) ORDER BY i.fulfillable DESC, i.inbound DESC`,
     )
     .all() as { marketplace: MarketplaceCode; sku: string; asin: string; fulfillable: number; inbound: number; reserved: number; unfulfillable: number; date: string }[];
-  const inventoryRows = inventory.map((i) => {
+  // SKUs with nothing available, inbound or reserved (e.g. the same SKUs listed in Canada and Mexico) are left out.
+  const stocked = inventory.filter((i) => i.fulfillable + i.inbound + i.reserved > 0);
+  const inventoryRows = stocked.map((i) => {
     // Sales pace from orders of the last 14 days.
     const pace = (db
       .prepare("SELECT COALESCE(SUM(qty), 0) / 14.0 v FROM orders WHERE asin = ? AND marketplace = ? AND status != 'Cancelled' AND purchase_date >= ?")
@@ -392,6 +417,7 @@ export async function getBusiness(range: { from: string; to: string }) {
     perProduct,
     orders,
     inventory: inventoryRows,
+    emptySkus: inventory.length - stocked.length,
     lowStockDays: getSettings().lowStockDays,
     hasData: daily.length > 0 || orders.length > 0 || inventory.length > 0,
     /** True once anything has arrived from Amazon itself (not sample data). */

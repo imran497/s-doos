@@ -144,6 +144,3 @@
   @apply min-h-8 w-full rounded-md border border-input bg-white px-2.5 py-1.5 text-[13px] text-ink outline-none transition-shadow placeholder:text-muted-foreground/70 focus:border-brand focus:ring-2 focus:ring-brand/15;
 }
 
-@utility eyebrow {
-  @apply text-[13px] font-medium text-muted-foreground;
-}

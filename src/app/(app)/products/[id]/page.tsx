@@ -17,6 +17,8 @@ import { getProductDetail, getSqpQueries, type ProductDetail } from "@/lib/queri
 import { getSqpPerformance } from "@/lib/sqp";
 import { getProductOrders } from "@/lib/product-orders";
 import { getSerpProvider } from "@/lib/serp";
+import { Segmented } from "@/components/Segmented";
+import { Input } from "@/components/ui/input";
 import { DashboardControls } from "@/components/dashboard/DashboardControls";
 import { ProductOverview } from "@/components/product/ProductOverview";
 import { SectionHeader } from "@/components/PageHeader";
@@ -38,8 +40,10 @@ const TABS = [
   { id: "competitors", label: "Competitors" },
 ] as const;
 
-/** Tabs that use the 7/14/30-day range picker. */
-const RANGED = new Set(["keywords", "sales", "ads", "competitors"]);
+/** The Keywords tab shows 7/14/30 days of rank history. */
+const RANGED = new Set(["keywords"]);
+/** Tabs with the standard date picker (period / from / to in the URL). */
+const DATED = new Set(["overview", "queries", "sales", "ads", "competitors"]);
 
 type Query = {
   tab: (typeof TABS)[number]["id"];
@@ -91,7 +95,7 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
       params.set("view", next.view);
       if (next.q) params.set("q", next.q);
     }
-    if ((next.tab === "queries" || next.tab === "overview") && next.period) {
+    if (DATED.has(next.tab) && next.period) {
       params.set("period", next.period);
       if (next.period === "custom") {
         params.set("from", next.from);
@@ -105,31 +109,29 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
 
   return (
     <div className="space-y-6">
-      <Link href="/products" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-ink">
-        <ArrowLeft className="size-4" /> Products
+      <Link href="/products" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-3.5" /> Products
       </Link>
 
-      <header className="flex flex-wrap items-center gap-5">
-        <ProductThumb src={product.image_url} size={72} />
+      <header className="flex flex-wrap items-center gap-4">
+        <ProductThumb src={product.image_url} size={56} />
         <div className="min-w-0 flex-1">
-          <h1 className="line-clamp-2 text-xl font-extrabold tracking-tight sm:text-2xl">
-            {product.title ?? "Your product"}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <h1 className="line-clamp-2 text-xl font-semibold tracking-tight sm:text-2xl">{product.title ?? "Your product"}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <a
               href={`https://www.${market.domain}/dp/${product.asin}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 font-mono text-xs shadow-sm hover:text-brand"
+              className="inline-flex items-center gap-1 rounded-md border bg-card px-2 py-0.5 font-mono hover:text-brand"
             >
               {market.flag} {product.asin} <ExternalLink className="size-3" />
             </a>
             {latestBsr && (
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold shadow-sm">
-                BSR #{latestBsr.rank.toLocaleString()} · {latestBsr.category}
+              <span className="rounded-md border bg-card px-2 py-0.5">
+                BSR <span className="font-medium text-foreground">#{latestBsr.rank.toLocaleString()}</span> · {latestBsr.category}
               </span>
             )}
-            <span className="text-xs">{detail.keywords.length} keywords tracked</span>
+            <span>{detail.keywords.length} keyword{detail.keywords.length === 1 ? "" : "s"} tracked</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -150,8 +152,8 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
           <Link
             key={t.id}
             href={href({ tab: t.id })}
-            className={`-mb-px border-b-2 pb-3 font-semibold transition ${
-              query.tab === t.id ? "border-brand text-ink" : "border-transparent text-muted-foreground hover:text-ink"
+            className={`-mb-px border-b-2 pb-2.5 text-[13px] font-medium transition ${
+              query.tab === t.id ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             {t.label}
@@ -159,16 +161,27 @@ async function ProductView({ params, searchParams }: PageProps<"/products/[id]">
         ))}
       </nav>
 
-      {RANGED.has(query.tab) && query.tab !== "keywords" && <RangePicker query={query} href={href} />}
       {query.tab === "overview" && (
         <Suspense fallback={<div className="card h-72 animate-pulse" />}>
           <OverviewTab detail={detail} sqpQueries={sqpQueries} query={query} />
         </Suspense>
       )}
       {query.tab === "keywords" && <KeywordsTab detail={detail} query={query} href={href} />}
-      {query.tab === "sales" && <SalesSection productId={product.id} range={query.range} />}
-      {query.tab === "ads" && <AdsSection productId={product.id} range={query.range} />}
-      {query.tab === "competitors" && <CompetitorsSection productId={product.id} range={query.range} />}
+      {query.tab === "sales" && (
+        <Suspense fallback={<div className="h-72 animate-pulse rounded-lg border bg-card" />}>
+          <SalesSection productId={product.id} query={query} />
+        </Suspense>
+      )}
+      {query.tab === "ads" && (
+        <Suspense fallback={<div className="h-72 animate-pulse rounded-lg border bg-card" />}>
+          <AdsSection productId={product.id} query={query} />
+        </Suspense>
+      )}
+      {query.tab === "competitors" && (
+        <Suspense fallback={<div className="h-72 animate-pulse rounded-lg border bg-card" />}>
+          <CompetitorsSection productId={product.id} query={query} />
+        </Suspense>
+      )}
       {query.tab === "queries" && (
         <Suspense fallback={<div className="card h-72 animate-pulse" />}>
           <SqpSection productId={product.id} query={query} currency={market.currency} />
@@ -210,45 +223,33 @@ async function KeywordsTab({ detail, query, href }: { detail: ProductDetail; que
   const keywords = query.q ? detail.keywords.filter((k) => k.keyword.includes(query.q)) : detail.keywords;
   const trends = keywordTrends(keywords, detail.dates, detail.latestDate, query.mode);
   const keywordAds = await getKeywordAds(detail.product.id);
-  const pill = (active: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-semibold transition ${active ? "bg-ink text-white" : "text-muted-foreground hover:text-ink"}`;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-full bg-white p-1 text-sm shadow-sm">
-          {(["organic", "sponsored"] as const).map((m) => (
-            <Link key={m} href={href({ mode: m })} className={`${pill(query.mode === m)} capitalize`}>
-              {m}
-            </Link>
-          ))}
-        </div>
-        <div className="flex rounded-full bg-white p-1 text-sm shadow-sm">
-          <Link href={href({ view: "list" })} className={pill(query.view === "list")}>
-            <List className="size-3.5" /> List
-          </Link>
-          <Link href={href({ view: "grid" })} className={pill(query.view === "grid")}>
-            <LayoutGrid className="size-3.5" /> Daily grid
-          </Link>
-        </div>
-        <div className="flex rounded-full bg-white p-1 text-sm shadow-sm">
-          {[7, 14, 30].map((r) => (
-            <Link key={r} href={href({ range: r })} className={pill(query.range === r)}>
-              {r} days
-            </Link>
-          ))}
-        </div>
-        <form className="relative" action="">
+        <Segmented
+          label="Rank type"
+          options={(["organic", "sponsored"] as const).map((m) => ({ href: href({ mode: m }), label: m === "organic" ? "Organic" : "Sponsored", active: query.mode === m }))}
+        />
+        <Segmented
+          label="View"
+          options={[
+            { href: href({ view: "list" }), label: <><List /> List</>, active: query.view === "list" },
+            { href: href({ view: "grid" }), label: <><LayoutGrid /> Daily grid</>, active: query.view === "grid" },
+          ]}
+        />
+        <Segmented label="History" options={[7, 14, 30].map((r) => ({ href: href({ range: r }), label: `${r} days`, active: query.range === r }))} />
+        <form className="relative w-full sm:w-48" action="">
           <input type="hidden" name="tab" value="keywords" />
           <input type="hidden" name="range" value={query.range} />
           <input type="hidden" name="mode" value={query.mode} />
           <input type="hidden" name="view" value={query.view} />
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input name="q" defaultValue={query.q} placeholder="Find a keyword" className="field w-44 rounded-full pl-9" />
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input name="q" defaultValue={query.q} placeholder="Find a keyword" className="h-8 pl-8 text-[13px]" />
         </form>
         <div className="ml-auto flex gap-2">
           <a href={`/products/${detail.product.id}/export?range=${query.range}`} className="btn">
-            <Download className="size-4" /> CSV
+            <Download /> CSV
           </a>
           <AddKeywordsButton productId={detail.product.id} />
         </div>
@@ -277,7 +278,7 @@ async function SqpSection({ productId, query, currency }: { productId: number; q
   if (!data.hasData) {
     if (!isSpApiConfigured()) return <SpApiNote what="Search Query Performance" />;
     return (
-      <div className="card p-10 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-[13px] text-muted-foreground">
         No Search Query Performance data yet. Amazon publishes it weekly for brand-registered products; SellerDoos fetches the last 8 weeks
         automatically. You can also click “Sync Amazon data” in <Link href="/settings" className="font-semibold text-brand">Settings</Link>.
       </div>
@@ -288,40 +289,61 @@ async function SqpSection({ productId, query, currency }: { productId: number; q
 
 function SpApiNote({ what }: { what: string }) {
   return (
-    <div className="card p-10 text-center text-sm text-muted-foreground">
-      {what} comes from Amazon&apos;s Selling Partner API. Add your SP-API keys to <code className="font-mono">.env.local</code>; see{" "}
-      <Link href="/settings" className="font-semibold text-brand">Settings</Link>.
+    <div className="rounded-lg border border-dashed bg-card px-6 py-10 text-center text-[13px] text-muted-foreground">
+      {what} comes from Amazon&apos;s Selling Partner API. Connect Seller Central in{" "}
+      <Link href="/settings#connect" className="font-medium text-brand">
+        Settings
+      </Link>
+      .
     </div>
   );
 }
 
-function RangePicker({ query, href }: { query: Query; href: (c: Partial<Query>) => string }) {
+
+/** The tab's date range from the URL (default: last 30 days). Periods depend on the current time. */
+async function tabPeriod(query: Query) {
+  await connection();
+  return resolvePeriod(isPeriodKey(query.period) ? query.period : "last_30", query.from, query.to);
+}
+
+/** Date picker row shown at the top of a dated tab. */
+function TabControls({ period }: { period: Awaited<ReturnType<typeof tabPeriod>> }) {
   return (
-    <div className="flex w-fit rounded-full bg-white p-1 text-sm shadow-sm">
-      {[7, 14, 30].map((r) => (
-        <Link
-          key={r}
-          href={href({ range: r })}
-          className={`rounded-full px-3.5 py-1.5 font-semibold transition ${query.range === r ? "bg-ink text-white" : "text-muted-foreground hover:text-ink"}`}
-        >
-          {r} days
-        </Link>
-      ))}
+    <div className="flex justify-end">
+      <DashboardControls period={period.key} from={period.from} to={period.to} marketplace="US" marketplaceOptions={[]} />
     </div>
   );
 }
 
-async function SalesSection({ productId, range }: { productId: number; range: number }) {
-  const [sales, orders] = await Promise.all([getSalesDetail(productId, range), getProductOrders(productId)]);
-  return sales && <SalesTab productId={productId} sales={sales} demo={!isSpApiConfigured()} orders={orders} />;
+async function SalesSection({ productId, query }: { productId: number; query: Query }) {
+  const period = await tabPeriod(query);
+  const [sales, orders] = await Promise.all([getSalesDetail(productId, { from: period.from, to: period.to }), getProductOrders(productId)]);
+  return (
+    <div className="space-y-5">
+      <TabControls period={period} />
+      {sales && <SalesTab productId={productId} sales={sales} demo={!isSpApiConfigured()} orders={orders} />}
+    </div>
+  );
 }
 
-async function AdsSection({ productId, range }: { productId: number; range: number }) {
-  const [ads, orders] = await Promise.all([getAdsDetail(productId, range), getProductOrders(productId)]);
-  return ads && <AdsTab productId={productId} ads={ads} currency={ads.currency} demo={!isAdsConfigured()} orders={orders} />;
+async function AdsSection({ productId, query }: { productId: number; query: Query }) {
+  const period = await tabPeriod(query);
+  const [ads, orders] = await Promise.all([getAdsDetail(productId, { from: period.from, to: period.to }), getProductOrders(productId)]);
+  return (
+    <div className="space-y-5">
+      <TabControls period={period} />
+      {ads && <AdsTab productId={productId} ads={ads} currency={ads.currency} demo={!isAdsConfigured()} orders={orders} />}
+    </div>
+  );
 }
 
-async function CompetitorsSection({ productId, range }: { productId: number; range: number }) {
-  const data = await getCompetitorDetail(productId, range);
-  return data && <CompetitorsTab productId={productId} data={data} demo={!isSpApiConfigured()} />;
+async function CompetitorsSection({ productId, query }: { productId: number; query: Query }) {
+  const period = await tabPeriod(query);
+  const data = await getCompetitorDetail(productId, { from: period.from, to: period.to });
+  return (
+    <div className="space-y-5">
+      <TabControls period={period} />
+      {data && <CompetitorsTab productId={productId} data={data} demo={!isSpApiConfigured()} />}
+    </div>
+  );
 }

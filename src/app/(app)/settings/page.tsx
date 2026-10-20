@@ -19,17 +19,24 @@ import { getSettings } from "@/lib/settings";
 import { isAdsConfigured } from "@/lib/amazon/ads";
 import { isSpApiConfigured } from "@/lib/amazon/spapi";
 import { db } from "@/lib/db";
+import { PageHeader } from "@/components/PageHeader";
+import { Panel, tableStyles } from "@/components/Panel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default function SettingsPage(props: PageProps<"/settings">) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Connect your accounts, set the schedule, and see recent runs.</p>
-      </div>
-      <Suspense fallback={<div className="card h-64 animate-pulse" />}>
+      <PageHeader title="Settings" description="Connections, ad reports, schedule, backups and activity." />
+      <nav aria-label="Settings sections" className="-mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+        {SECTIONS.map((s) => (
+          <a key={s.id} href={`#${s.id}`} className="text-muted-foreground hover:text-brand">
+            {s.label}
+          </a>
+        ))}
+      </nav>
+      <Suspense fallback={<Skeleton className="h-64 rounded-lg" />}>
         <SettingsContent {...props} />
       </Suspense>
     </div>
@@ -75,37 +82,32 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
   const error = typeof sp.error === "string" ? sp.error : null;
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
       {unreviewed > 0 && (
-        <a href="#security" className="block rounded-2xl bg-coral-soft px-4 py-3 text-sm font-semibold text-[#b4402f] lg:col-span-2">
+        <a href="#security" className="block rounded-lg border border-destructive/20 bg-coral-soft px-4 py-3 text-[13px] font-medium text-destructive">
           {unreviewed} security event{unreviewed === 1 ? "" : "s"} to review: see the Security log below. Your incident response plan asks you to act within 24 hours.
         </a>
       )}
       {(connected || error) && (
         <div
-          className={`rounded-2xl px-4 py-3 text-sm font-semibold lg:col-span-2 ${error ? "bg-coral-soft text-[#b4402f]" : "bg-brand-soft text-brand-dark"}`}
+          className={`rounded-lg border px-4 py-3 text-[13px] font-medium ${error ? "border-destructive/20 bg-coral-soft text-destructive" : "border-brand/20 bg-brand-soft text-brand-dark"}`}
         >
           {error ?? (connected === "seller" ? "Seller Central connected. Click “Sync Amazon data” to pull your data." : "Amazon Ads connected. Click “Sync Amazon data” to pull your ad reports.")}
         </div>
       )}
 
-      <section id="connect" className="scroll-mt-20 space-y-4 lg:col-span-2">
-        <div>
-          <h2 className="text-xl font-extrabold tracking-tight">Connect your Amazon accounts</h2>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            You sign in on Amazon&apos;s own page and approve access; SellerDoos never sees your password. Amazon requires a developer app for this, which
-            you register once (that&apos;s the part tools like SoldScope do for their customers). Keys and tokens are stored only in SellerDoos&apos; local
-            database.
-          </p>
-        </div>
+      <Panel
+        id="connect"
+        title="Connections"
+        meta="You sign in on Amazon's own page and approve access; SellerDoos never sees your password. Keys and tokens are stored encrypted in SellerDoos' own database."
+      >
         {!secure && (!spApi || !ads) && (
-          <div className="rounded-2xl border border-gold/30 bg-[#fdf6ea] px-4 py-3 text-sm">
-            Amazon only returns you to a secure (https) address. To connect, stop the app and run <code className="font-mono">npm run dev:https</code>, then open{" "}
-            <code className="font-mono">https://localhost:3000/settings</code>. After connecting you can go back to <code className="font-mono">npm start</code>.
+          <div className="mb-4 rounded-md border border-[#f2d49b] bg-[#fdf6e7] px-3 py-2 text-[13px] text-[#7a4f0e]">
+            Amazon only returns you to a secure (https) address. To connect, run <code className="font-mono">npm run dev:https</code> and open{" "}
+            <code className="font-mono">https://localhost:3000/settings</code>.
           </div>
         )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <ConnectCard
             title="Seller Central"
             subtitle="Sales, profit, stock, BSR, prices, Search Query Performance and Top Search Terms (SP-API)"
@@ -149,8 +151,8 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
             note="Sales & Traffic, SQP and Top Search Terms need Brand Registry."
           />
           <ConnectCard
-            title="Amazon Ads"
-            subtitle="Ad spend, ad sales, ACoS and customer search terms (Amazon Ads API)"
+            title="Amazon Ads API"
+            subtitle="Optional: ad numbers automatically. Without it, upload your ad reports below."
             connected={ads}
             detail={ads ? "Connected. Your seller profile is matched per marketplace automatically." : null}
             steps={[
@@ -170,78 +172,69 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
             group="ads"
           />
         </div>
-      </section>
+      </Panel>
 
       {!ads && (
-        <section id="ads-upload" className="scroll-mt-20 card space-y-4 p-6 lg:col-span-2">
-          <div>
-            <h2 className="font-extrabold">Upload Amazon Ads reports</h2>
-            <p className="text-sm text-muted-foreground">
-              Until the Ads API is connected, download reports from Amazon Ads and upload them here. They fill the Dashboard&apos;s Advertising section,
-              ACoS on Products and search terms, replacing the sample data.
-            </p>
-          </div>
+        <Panel
+          id="ads-upload"
+          title="Amazon Ads reports"
+          meta="Download reports from Amazon Ads and upload them here. They fill the Advertising numbers, ACoS and search terms."
+        >
           <AdsUpload marketplaces={adsUploadMarketplaces} />
-        </section>
+        </Panel>
       )}
 
-      <section id="rank-data" className="scroll-mt-20 card space-y-5 p-6">
-        <div>
-          <h2 className="font-extrabold">Keyword rank data</h2>
-          <p className="text-sm text-muted-foreground">
-            Amazon doesn&apos;t share keyword ranks, so these come from a search results provider.
-            {provider.isDemo ? " With neither connected, ranks are made-up demo data." : ` Using ${provider.label}.`}
-          </p>
-        </div>
-        <div className="space-y-3">
-          <StatusLine ok={provider.id === "dataforseo"} title="DataForSEO (recommended): ranks and search volume, pay as you go" />
-          <CredentialForm group="dataforseo" fields={[field("DATAFORSEO_LOGIN", "API login"), field("DATAFORSEO_PASSWORD", "API password", true)]} />
-          {isDataForSeoConfigured() && !fromEnvironment("DATAFORSEO_LOGIN") && <DisconnectButton group="dataforseo" label="Remove keys" />}
-        </div>
-        <div className="space-y-3 border-t border-line pt-5">
-          <StatusLine
-            ok={provider.id === "rainforest"}
-            title={`Rainforest API (alternative)${provider.id === "dataforseo" ? ": not used while DataForSEO is connected" : ""}`}
-          />
-          <CredentialForm group="rainforest" fields={[field("RAINFOREST_API_KEY", "API key", true)]} />
-          {getCredential("RAINFOREST_API_KEY") && !fromEnvironment("RAINFOREST_API_KEY") && <DisconnectButton group="rainforest" label="Remove key" />}
-        </div>
-      </section>
-
-      <section id="schedule" className="scroll-mt-20 card space-y-5 p-5">
-        <h2 className="font-semibold">Schedule</h2>
-        <SettingsForm settings={getSettings()} provider={provider.id} researchSeeds={researchSeeds} />
-        <div className="border-t border-line pt-5">
-          <RunButtons isDemo={hasDemo} />
-        </div>
-      </section>
-
-      <section id="data" className="scroll-mt-20 card space-y-4 p-6 lg:col-span-2">
-        <div>
-          <h2 className="font-extrabold">Data</h2>
-          <p className="text-sm text-muted-foreground">Back up or move everything SellerDoos holds.</p>
-        </div>
-        <DataControls />
-      </section>
-
-      <section id="security" className="scroll-mt-20 card space-y-4 p-6 lg:col-span-2">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-extrabold">Security log</h2>
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              Rejected logins, refused API access and suspicious connect attempts are recorded here. Saved keys and tokens are encrypted; the
-              encryption key is kept separately at <code className="font-mono text-xs">{keyFileLocation()}</code>. What to do when something
-              appears is in <code className="font-mono text-xs">docs/incident-response-plan.md</code>.
-            </p>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <Panel
+          id="rank-data"
+          title="Keyword rank data"
+          meta={`Amazon doesn't share keyword ranks, so these come from a search results provider.${provider.isDemo ? " With neither connected, ranks are sample data." : ` Using ${provider.label}.`}`}
+        >
+          <div className="space-y-3">
+            <StatusLine ok={provider.id === "dataforseo"} title="DataForSEO (recommended): ranks and search volume, pay as you go" />
+            <CredentialForm group="dataforseo" fields={[field("DATAFORSEO_LOGIN", "API login"), field("DATAFORSEO_PASSWORD", "API password", true)]} />
+            {isDataForSeoConfigured() && !fromEnvironment("DATAFORSEO_LOGIN") && <DisconnectButton group="dataforseo" label="Remove keys" />}
           </div>
-          {unreviewed > 0 && <AcknowledgeSecurityButton />}
-        </div>
+          <div className="mt-5 space-y-3 border-t pt-5">
+            <StatusLine
+              ok={provider.id === "rainforest"}
+              title={`Rainforest API (alternative)${provider.id === "dataforseo" ? ": not used while DataForSEO is connected" : ""}`}
+            />
+            <CredentialForm group="rainforest" fields={[field("RAINFOREST_API_KEY", "API key", true)]} />
+            {getCredential("RAINFOREST_API_KEY") && !fromEnvironment("RAINFOREST_API_KEY") && <DisconnectButton group="rainforest" label="Remove key" />}
+          </div>
+        </Panel>
+
+        <Panel id="schedule" title="Schedule & sync" meta="When the daily check runs, and manual syncs">
+          <SettingsForm settings={getSettings()} provider={provider.id} researchSeeds={researchSeeds} />
+          <div className="mt-5 border-t pt-5">
+            <RunButtons isDemo={hasDemo} />
+          </div>
+        </Panel>
+      </div>
+
+      <Panel id="data" title="Data" meta="Back up or move everything SellerDoos holds.">
+        <DataControls />
+      </Panel>
+
+      <Panel
+        id="security"
+        title="Security log"
+        meta={
+          <>
+            Rejected logins, refused API access and suspicious connect attempts. Keys and tokens are encrypted; the key is kept at{" "}
+            <code className="font-mono">{keyFileLocation()}</code>. What to do: <code className="font-mono">docs/incident-response-plan.md</code>.
+          </>
+        }
+        actions={unreviewed > 0 ? <AcknowledgeSecurityButton /> : undefined}
+        bodyClassName={events.length ? "p-0" : undefined}
+      >
         {events.length ? (
-          <ul className="divide-y divide-line text-sm">
+          <ul className="divide-y text-[13px]">
             {events.map((e) => (
-              <li key={e.id} className="flex flex-wrap gap-x-4 gap-y-1 py-2">
+              <li key={e.id} className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-2.5">
                 <span className="w-36 shrink-0 tabular-nums text-muted-foreground">{e.at}</span>
-                <span className={`w-36 shrink-0 font-semibold ${e.acknowledged || e.kind === "disconnected" ? "text-muted-foreground" : "text-coral"}`}>
+                <span className={`w-36 shrink-0 font-medium ${e.acknowledged || e.kind === "disconnected" ? "text-muted-foreground" : "text-destructive"}`}>
                   {SECURITY_LABELS[e.kind] ?? e.kind}
                 </span>
                 <span className="min-w-0 flex-1 text-muted-foreground">{e.detail}</span>
@@ -249,91 +242,102 @@ async function SettingsContent({ searchParams }: PageProps<"/settings">) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">Nothing recorded.</p>
+          <p className="text-[13px] text-muted-foreground">Nothing recorded.</p>
         )}
-      </section>
+      </Panel>
 
-      <section id="runs" className="scroll-mt-20 card p-5 lg:col-span-2">
-        <h2 className="mb-3 font-semibold">Recent runs</h2>
+      <Panel id="runs" title="Recent runs" bodyClassName={runs.length ? "p-0" : undefined}>
         {runs.length ? (
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="py-2 font-medium">Started</th>
-                <th className="py-2 font-medium">Type</th>
-                <th className="py-2 font-medium">Status</th>
-                <th className="py-2 font-medium">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {runs.map((r) => (
-                <tr key={r.id} className="align-top">
-                  <td className="whitespace-nowrap py-2 pr-4 tabular-nums">{r.started_at}</td>
-                  <td className="py-2 pr-4 capitalize">{r.kind}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        r.status === "ok"
-                          ? "bg-brand-soft text-brand"
-                          : r.status === "running"
-                            ? "bg-brand-soft text-brand"
-                            : r.status === "partial"
-                              ? "bg-[#fdf1dc] text-[#8a5a12]"
-                              : "bg-coral-soft text-coral"
-                      }`}
-                    >
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="whitespace-pre-line py-2 text-xs text-muted-foreground">{r.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nothing has run yet.</p>
-        )}
-        {queue.length > 0 && (
-          <>
-            <h3 className="mb-1 mt-8 text-sm font-semibold">Amazon report queue</h3>
-            <p className="mb-3 text-xs text-muted-foreground">Amazon builds reports in the background; SellerDoos requests them within rate limits and collects them every few minutes.</p>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="py-2 font-medium">Report</th>
-                  <th className="py-2 font-medium">For</th>
-                  <th className="py-2 font-medium">Period</th>
-                  <th className="py-2 font-medium">Status</th>
-                  <th className="py-2 font-medium">Notes</th>
+          <div className="overflow-x-auto">
+            <table className={tableStyles.table}>
+              <thead className={tableStyles.head}>
+                <tr className="border-b text-left">
+                  <th>Started</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Notes</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
-                {queue.map((q) => (
-                  <tr key={`${q.kind}-${q.scope}-${q.period_start}-${q.period_end}`} className="align-top">
-                    <td className="py-2 pr-4">{REPORT_NAMES[q.kind] ?? q.kind}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">{reportScope(q.kind, q.scope)}</td>
-                    <td className="whitespace-nowrap py-2 pr-4 tabular-nums text-muted-foreground">
-                      {q.period_start === q.period_end ? q.period_start : `${q.period_start} → ${q.period_end}`}
+              <tbody>
+                {runs.map((r) => (
+                  <tr key={r.id} className={`${tableStyles.row} align-top`}>
+                    <td className="whitespace-nowrap tabular-nums">{r.started_at}</td>
+                    <td className="capitalize">{r.kind}</td>
+                    <td>
+                      <Badge tone={r.status === "ok" || r.status === "running" ? "good" : r.status === "partial" ? "warn" : "bad"}>{r.status}</Badge>
                     </td>
-                    <td className="py-2 pr-4">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          q.status === "done" ? "bg-brand-soft text-brand" : q.status === "failed" ? "bg-coral-soft text-coral" : "bg-canvas text-muted-foreground"
-                        }`}
-                      >
-                        {q.status === "queued" ? "waiting" : q.status === "pending" ? "Amazon is building" : q.status}
-                      </span>
-                    </td>
-                    <td className="py-2 text-xs text-muted-foreground">{q.message}</td>
+                    <td className="whitespace-pre-line text-xs text-muted-foreground">{r.message}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </>
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">Nothing has run yet.</p>
         )}
-      </section>
+      </Panel>
+
+      {queue.length > 0 && (
+        <Panel
+          id="queue"
+          title="Amazon report queue"
+          meta="Amazon builds reports in the background; SellerDoos requests them within rate limits and collects them every few minutes."
+          bodyClassName="p-0"
+        >
+          <div className="overflow-x-auto">
+            <table className={tableStyles.table}>
+              <thead className={tableStyles.head}>
+                <tr className="border-b text-left">
+                  <th>Report</th>
+                  <th>For</th>
+                  <th>Period</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queue.map((q) => (
+                  <tr key={`${q.kind}-${q.scope}-${q.period_start}-${q.period_end}`} className={`${tableStyles.row} align-top`}>
+                    <td>{REPORT_NAMES[q.kind] ?? q.kind}</td>
+                    <td className="whitespace-nowrap text-muted-foreground">{reportScope(q.kind, q.scope)}</td>
+                    <td className="whitespace-nowrap tabular-nums text-muted-foreground">
+                      {q.period_start === q.period_end ? q.period_start : `${q.period_start} → ${q.period_end}`}
+                    </td>
+                    <td>
+                      <Badge tone={q.status === "done" ? "good" : q.status === "failed" ? "bad" : "neutral"}>
+                        {q.status === "queued" ? "waiting" : q.status === "pending" ? "Amazon is building" : q.status}
+                      </Badge>
+                    </td>
+                    <td className="text-xs text-muted-foreground">{q.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
     </div>
   );
+}
+
+const SECTIONS = [
+  { id: "connect", label: "Connections" },
+  { id: "ads-upload", label: "Ads reports" },
+  { id: "rank-data", label: "Rank data" },
+  { id: "schedule", label: "Schedule" },
+  { id: "data", label: "Data" },
+  { id: "security", label: "Security" },
+  { id: "runs", label: "Activity" },
+];
+
+function Badge({ tone, children }: { tone: "good" | "warn" | "bad" | "neutral"; children: React.ReactNode }) {
+  const styles = {
+    good: "bg-positive-soft text-positive",
+    warn: "bg-[#fdf1dc] text-[#8a5a12]",
+    bad: "bg-coral-soft text-destructive",
+    neutral: "bg-[#f1f3f7] text-[#545969]",
+  }[tone];
+  return <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${styles}`}>{children}</span>;
 }
 
 const SECURITY_LABELS: Record<string, string> = {
@@ -370,8 +374,8 @@ const REPORT_NAMES: Record<string, string> = {
 function StatusLine({ ok, title }: { ok: boolean; title: string }) {
   const Icon = ok ? CheckCircle2 : CircleDashed;
   return (
-    <p className="flex items-center gap-2 text-sm font-semibold">
-      <Icon className={`size-5 shrink-0 ${ok ? "text-brand" : "text-muted-foreground"}`} /> {title}
+    <p className="flex items-center gap-2 text-[13px] font-medium">
+      <Icon className={`size-4 shrink-0 ${ok ? "text-positive" : "text-muted-foreground"}`} /> {title}
     </p>
   );
 }
@@ -391,20 +395,18 @@ function ConnectCard(props: {
   extra?: React.ReactNode;
 }) {
   return (
-    <div className={`card space-y-5 p-6 ${props.connected ? "ring-2 ring-brand/30" : ""}`}>
+    <div className="space-y-4 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-extrabold">{props.title}</h3>
-          <p className="text-sm text-muted-foreground">{props.subtitle}</p>
+          <h3 className="text-[15px] font-semibold">{props.title}</h3>
+          <p className="text-xs text-muted-foreground">{props.subtitle}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${props.connected ? "bg-brand text-white" : "bg-canvas text-muted-foreground"}`}>
-          {props.connected ? "Connected" : "Not connected"}
-        </span>
+        <Badge tone={props.connected ? "good" : "neutral"}>{props.connected ? "Connected" : "Not connected"}</Badge>
       </div>
 
       {props.connected ? (
         <div className="space-y-3">
-          <p className="text-sm text-brand-dark">{props.detail}</p>
+          <p className="text-[13px] text-foreground">{props.detail}</p>
           {props.extra}
           <div className="flex flex-wrap gap-2">
             <a href={props.connectHref} className="btn">
@@ -414,7 +416,7 @@ function ConnectCard(props: {
           </div>
         </div>
       ) : (
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-ink">
+        <ol className="list-decimal space-y-2 pl-5 text-[13px] text-foreground">
           {props.steps.map((step, i) => (
             <li key={i} className="pl-1">
               {step}
@@ -431,7 +433,7 @@ function ConnectCard(props: {
       )}
 
       <details className="group" open={!props.connected}>
-        <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-ink">App keys</summary>
+        <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground hover:text-foreground">App keys</summary>
         <div className="mt-3">{props.form}</div>
       </details>
 

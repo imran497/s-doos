@@ -4,10 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, Tag, Trash2 } from "lucide-react";
 import { checkNow, deleteKeywords, updateTags } from "@/app/actions";
 import { Sparkline } from "@/components/charts";
+import { Button } from "@/components/ui/button";
 import { RankBadge } from "@/components/RankBadge";
 import type { KeywordTrend } from "@/lib/insights";
 import type { KeywordAds } from "@/lib/commerce";
 import { compact, formatMoney, pct, percent } from "@/lib/metrics";
+import { cn } from "@/lib/utils";
 
 type SortKey = "keyword" | "volume" | "rank" | "change";
 
@@ -58,24 +60,28 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
     });
   const ids = [...selected];
   const columns = [...dates].reverse();
-  const head = "px-3 py-3 text-xs font-semibold text-muted-foreground";
+  const head = "px-3 py-2.5 text-xs font-medium whitespace-nowrap text-muted-foreground";
 
   return (
-    <div className="card overflow-hidden">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-[0_1px_2px_0_rgba(16,24,40,0.04)]">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 bg-ink px-5 py-3 text-sm text-white">
-          <span className="font-semibold">{selected.size} selected</span>
-          <button
+        <div className="flex flex-wrap items-center gap-2 border-b bg-brand-soft/50 px-4 py-2.5 text-[13px]">
+          <span className="mr-1 font-medium">{selected.size} selected</span>
+          <Button
             type="button"
-            className="btn border-white/20 bg-white/10 py-1.5 text-white hover:bg-white/20"
+            variant="outline"
+            size="sm"
+            className="h-7"
             disabled={pending}
             onClick={() => start(async () => setMessage((await checkNow(productId, ids))?.message))}
           >
-            <RefreshCw className={`size-3.5 ${pending ? "animate-spin" : ""}`} /> Check now
-          </button>
-          <button
+            <RefreshCw className={cn("size-3.5", pending && "animate-spin")} /> Check now
+          </Button>
+          <Button
             type="button"
-            className="btn border-coral/40 bg-coral/15 py-1.5 text-white hover:bg-coral/30"
+            variant="outline"
+            size="sm"
+            className="h-7 text-destructive hover:text-destructive"
             disabled={pending}
             onClick={() => {
               if (!confirm(`Stop tracking ${selected.size} keyword(s)? Their rank history is deleted too.`)) return;
@@ -86,16 +92,16 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
             }}
           >
             <Trash2 className="size-3.5" /> Delete
-          </button>
-          {message && <span className="text-white/70">{message}</span>}
+          </Button>
+          {message && <span className="text-muted-foreground">{message}</span>}
         </div>
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-line text-left">
+        <table className="w-full text-[13px]">
+          <thead className="border-b bg-canvas text-left">
             <tr>
-              <th className="w-10 py-3 pl-5">
+              <th className="w-10 py-2.5 pl-4">
                 <input
                   type="checkbox"
                   aria-label="Select all keywords"
@@ -127,19 +133,19 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
                 </>
               ) : (
                 columns.map((d) => (
-                  <th key={d} className="whitespace-nowrap px-1 py-3 text-center text-[11px] font-semibold text-muted-foreground">
+                  <th key={d} className="whitespace-nowrap px-1 py-2.5 text-center text-[11px] font-medium text-muted-foreground">
                     {shortDate(d)}
                   </th>
                 ))
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody className="divide-y">
             {rows.map((t) => {
               const k = t.keyword;
               return (
-                <tr key={k.id} className={selected.has(k.id) ? "bg-brand-soft/50" : "hover:bg-canvas/60"}>
-                  <td className="py-3 pl-5">
+                <tr key={k.id} className={selected.has(k.id) ? "bg-brand-soft/50" : "hover:bg-canvas/50"}>
+                  <td className="py-2.5 pl-4">
                     <input
                       type="checkbox"
                       aria-label={`Select ${k.keyword}`}
@@ -153,7 +159,7 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
                       href={`https://www.${amazonDomain}/s?k=${encodeURIComponent(k.keyword)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-semibold hover:text-brand"
+                      className="font-medium hover:text-brand"
                     >
                       {k.keyword}
                     </a>
@@ -171,13 +177,13 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
                       <td className="px-3 py-3 text-center">
                         <RankBadge rank={t.now} checked={t.checkedNow} />
                       </td>
-                      <td className="px-3 py-3 text-right font-bold tabular-nums">
+                      <td className="px-3 py-3 text-right font-medium tabular-nums">
                         {t.delta == null || t.delta === 0 ? (
-                          <span className="font-medium text-muted-foreground">–</span>
+                          <span className="text-muted-foreground">—</span>
                         ) : t.delta > 0 ? (
-                          <span className="text-brand">▲ {t.delta}</span>
+                          <span className="text-positive">▲ {t.delta}</span>
                         ) : (
-                          <span className="text-coral">▼ {-t.delta}</span>
+                          <span className="text-destructive">▼ {-t.delta}</span>
                         )}
                       </td>
                       <td className="px-3 py-3">
@@ -188,8 +194,8 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
                       {ads && <td className="px-3 py-3 text-right tabular-nums">{ads[k.keyword]?.clicks ?? "–"}</td>}
                       {ads && <td className="px-3 py-3 text-right tabular-nums">{ads[k.keyword] ? formatMoney(ads[k.keyword].cost, currency) : "–"}</td>}
                       {ads && (
-                        <td className="py-3 pl-3 pr-5 text-right font-semibold tabular-nums">
-                          {ads[k.keyword] ? (ads[k.keyword].acos == null ? <span className="whitespace-nowrap text-coral">no sales</span> : percent(ads[k.keyword].acos, 0)) : "–"}
+                        <td className="py-3 pl-3 pr-5 text-right font-medium tabular-nums">
+                          {ads[k.keyword] ? (ads[k.keyword].acos == null ? <span className="whitespace-nowrap text-destructive">no sales</span> : percent(ads[k.keyword].acos, 0)) : "–"}
                         </td>
                       )}
                     </>
@@ -205,7 +211,7 @@ export function KeywordTable({ productId, amazonDomain, trends, dates, mode, vie
             })}
           </tbody>
         </table>
-        {!trends.length && <p className="p-10 text-center text-sm text-muted-foreground">No keywords match.</p>}
+        {!trends.length && <p className="px-6 py-10 text-center text-[13px] text-muted-foreground">No keywords match.</p>}
       </div>
     </div>
   );
@@ -219,7 +225,7 @@ function SortButton({ label, k, sort, onSort }: {
 }) {
   const Icon = sort.key !== k ? ArrowUpDown : sort.dir === 1 ? ArrowUp : ArrowDown;
   return (
-    <button type="button" onClick={() => onSort(k)} className={`inline-flex cursor-pointer items-center gap-1 hover:text-ink ${sort.key === k ? "text-ink" : ""}`}>
+    <button type="button" onClick={() => onSort(k)} className={cn("inline-flex cursor-pointer items-center gap-1 hover:text-foreground", sort.key === k && "text-foreground")}>
       {label}
       <Icon className="size-3" />
     </button>
@@ -253,7 +259,7 @@ function TagLine({ keywordId, tags }: { keywordId: number; tags: string }) {
     <button type="button" onClick={() => setEditing(true)} className="mt-1 flex cursor-pointer flex-wrap items-center gap-1 text-left">
       {tags ? (
         tags.split(", ").map((t) => (
-          <span key={t} className="rounded-full bg-canvas px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+          <span key={t} className="rounded border bg-canvas px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
             {t}
           </span>
         ))

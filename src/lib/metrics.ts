@@ -38,10 +38,12 @@ export const pct = (part: number | null | undefined, whole: number | null | unde
 /** Money with its currency symbol, e.g. $1,234.50. Falls back to a plain number without a currency. */
 export const formatMoney = (n: number | null | undefined, currency = "USD", compactForm = false) => {
   if (n == null) return "–";
-  if (!currency) return n.toFixed(2);
+  if (!currency) return (Object.is(n, -0) ? 0 : n).toFixed(2);
   return Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
+    // No "-$0.00" for a zero cost shown as negative.
+    signDisplay: "negative",
     ...(compactForm ? { notation: "compact", maximumFractionDigits: 1 } : { maximumFractionDigits: 2 }),
   }).format(n);
 };
